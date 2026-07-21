@@ -22,7 +22,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "5":
 			a.timeframe = "1h"
 		case "tab":
-			a.activeIdx = (a.activeIdx + 1) % 10 // max 10 panels
+			if len(a.panels) > 0 {
+				a.activeIdx = (a.activeIdx + 1) % len(a.panels)
+			}
+		case "shift+tab":
+			if len(a.panels) > 0 {
+				a.activeIdx = (a.activeIdx - 1 + len(a.panels)) % len(a.panels)
+			}
 		case "h":
 			a.showHelp = !a.showHelp
 		}
