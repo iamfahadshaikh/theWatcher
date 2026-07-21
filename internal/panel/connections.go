@@ -1,9 +1,23 @@
 package panel
 
-type ConnectionsPanel struct{}
+import (
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+	"theWatcher/internal/graph"
+	"theWatcher/internal/model"
+)
+
+type ConnectionsPanel struct {
+	summary model.ConnSummary
+}
 
 func NewConnectionsPanel() *ConnectionsPanel {
 	return &ConnectionsPanel{}
+}
+
+func (p *ConnectionsPanel) UpdateConnections(summary model.ConnSummary) {
+	p.summary = summary
 }
 
 func (p *ConnectionsPanel) Title() string {
@@ -11,6 +25,20 @@ func (p *ConnectionsPanel) Title() string {
 }
 
 func (p *ConnectionsPanel) Render(width, height int, active bool) string {
-	content := "ESTAB: 0 | LISTEN: 0 | TIME_WAIT: 0 | CLOSE_WAIT: 0"
+	total := p.summary.Established + p.summary.Listen + p.summary.TimeWait + p.summary.CloseWait + p.summary.SynSent + p.summary.SynRecv
+	maxVal := float64(total)
+	if maxVal < 10 {
+		maxVal = 10
+	}
+
+	barStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ccfd8"))
+	lblStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e0def4"))
+
+	b1 := graph.RenderBar("ESTAB ", float64(p.summary.Established), maxVal, width-6, barStyle, lblStyle)
+	b2 := graph.RenderBar("LISTEN", float64(p.summary.Listen), maxVal, width-6, barStyle, lblStyle)
+	b3 := graph.RenderBar("TIME_W", float64(p.summary.TimeWait), maxVal, width-6, barStyle, lblStyle)
+	b4 := graph.RenderBar("CLOS_W", float64(p.summary.CloseWait), maxVal, width-6, barStyle, lblStyle)
+
+	content := fmt.Sprintf("%s\n%s\n%s\n%s", b1, b2, b3, b4)
 	return RenderContainer(p.Title(), content, width, height, active)
 }
