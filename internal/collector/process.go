@@ -10,15 +10,20 @@ import (
 	"strings"
 	"time"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
+
+type ProcessSnapshot struct {
+	Processes []metrics.ProcessInfo
+	BirthRate float64
+}
 
 type ProcessCollector struct {
 	procDir   string
 	seenPIDs  map[int]bool
-	newCount  int
 	prevTime  time.Time
 	birthRate float64
+	snapshot  ProcessSnapshot
 }
 
 func NewProcessCollector() *ProcessCollector {
@@ -37,13 +42,17 @@ func NewProcessCollectorWithPath(procDir string) *ProcessCollector {
 	}
 }
 
-func (c *ProcessCollector) Collect() ([]model.ProcessInfo, float64, error) {
+func (c *ProcessCollector) Name() string {
+	return "Process"
+}
+
+func (c *ProcessCollector) Collect() error {
 	entries, err := os.ReadDir(c.procDir)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed reading proc dir: %w", err)
+		return fmt.Errorf("failed reading proc dir: %w", err)
 	}
 
-	var processes []model.ProcessInfo
+	var processes []metrics.ProcessInfo
 	currentPIDs := make(map[int]bool)
 	newPIDsThisInterval := 0
 
@@ -75,27 +84,39 @@ func (c *ProcessCollector) Collect() ([]model.ProcessInfo, float64, error) {
 	c.seenPIDs = currentPIDs
 	c.prevTime = now
 
-	// Sort processes by CPU descending
 	sort.Slice(processes, func(i, j int) bool {
 		return processes[i].CPU > processes[j].CPU
 	})
 
-	return processes, c.birthRate, nil
+	c.snapshot = ProcessSnapshot{
+		Processes: processes,
+		BirthRate: c.birthRate,
+	}
+	return nil
 }
 
-func (c *ProcessCollector) parseProcess(pid int) model.ProcessInfo {
-	info := model.ProcessInfo{
-		PID:     pid,
-		User:    "root",
-		CPU:     0.0,
-		Mem:     0.0,
-		Command: fmt.Sprintf("[%d]", pid),
-		Runtime: "0:00",
+func (c *ProcessCollector) Snapshot() any {
+	return c.snapshot
+}
+
+func (c *ProcessCollector) parseProcess(pid int) metrics.ProcessInfo {
+	info := metrics.ProcessInfo{
+		PID:      pid,
+		PPID:     0,
+		User:     "root",
+		TTY:      "?",
+		State:    "S",
+		Nice:     0,
+		Priority: 20,
+		Threads:  1,
+		CPU:      0.0,
+		Mem:      0.0,
+		Command:  fmt.Sprintf("[%d]", pid),
+		Runtime:  "0:00",
 	}
 
 	pidDir := filepath.Join(c.procDir, strconv.Itoa(pid))
 
-	// Read cmdline
 	if cmdBytes, err := os.ReadFile(filepath.Join(pidDir, "cmdline")); err == nil && len(cmdBytes) > 0 {
 		cmdStr := strings.ReplaceAll(string(cmdBytes), "\x00", " ")
 		cmdStr = strings.TrimSpace(cmdStr)
@@ -104,7 +125,21 @@ func (c *ProcessCollector) parseProcess(pid int) model.ProcessInfo {
 		}
 	}
 
-	// Read status for VmRSS / Uid
+	if statBytes, err := os.ReadFile(filepath.Join(pidDir, "stat")); err == nil {
+		sStr := string(statBytes)
+		rIdx := strings.LastIndex(sStr, ")")
+		if rIdx > 0 && rIdx+2 < len(sStr) {
+			fields := strings.Fields(sStr[rIdx+2:])
+			if len(fields) >= 18 {
+				info.State = fields[0]
+				info.PPID, _ = strconv.Atoi(fields[1])
+				info.Priority, _ = strconv.Atoi(fields[15])
+				info.Nice, _ = strconv.Atoi(fields[16])
+				info.Threads, _ = strconv.Atoi(fields[17])
+			}
+		}
+	}
+
 	if statusFile, err := os.Open(filepath.Join(pidDir, "status")); err == nil {
 		scanner := bufio.NewScanner(statusFile)
 		for scanner.Scan() {
@@ -113,7 +148,7 @@ func (c *ProcessCollector) parseProcess(pid int) model.ProcessInfo {
 				fields := strings.Fields(line)
 				if len(fields) >= 2 {
 					rssKB, _ := strconv.ParseFloat(fields[1], 64)
-					info.Mem = rssKB / 1024.0 // MB
+					info.Mem = rssKB / 1024.0
 				}
 			} else if strings.HasPrefix(line, "Name:") {
 				fields := strings.Fields(line)

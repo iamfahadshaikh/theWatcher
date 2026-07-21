@@ -3,26 +3,28 @@ package panel
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/graph"
 	"theWatcher/internal/history"
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
+	"theWatcher/internal/theme"
 )
 
 type NetworkPanel struct {
-	isTX    bool
-	history *history.RingBuffer[float64]
-	latest  model.NetworkMetric
+	isTX     bool
+	history  *history.RingBuffer[float64]
+	latest   metrics.NetworkMetric
+	renderer graph.Renderer
 }
 
 func NewNetworkPanel(isTX bool) *NetworkPanel {
 	return &NetworkPanel{
-		isTX:    isTX,
-		history: history.NewRingBuffer[float64](300),
+		isTX:     isTX,
+		history:  history.NewRingBuffer[float64](300),
+		renderer: graph.NewBrailleRenderer(),
 	}
 }
 
-func (p *NetworkPanel) UpdateMetric(m model.NetworkMetric) {
+func (p *NetworkPanel) UpdateMetric(m metrics.NetworkMetric) {
 	p.latest = m
 	if p.isTX {
 		p.history.Push(m.TxRateKB)
@@ -33,13 +35,12 @@ func (p *NetworkPanel) UpdateMetric(m model.NetworkMetric) {
 
 func (p *NetworkPanel) Title() string {
 	if p.isTX {
-		return "Network TX"
+		return "Outgoing Traffic"
 	}
-	return "Network RX"
+	return "Incoming Traffic"
 }
 
 func (p *NetworkPanel) Render(width, height int, active bool) string {
-	slice := p.history.Slice()
 	graphH := height - 4
 	if graphH < 1 {
 		graphH = 1
@@ -49,12 +50,18 @@ func (p *NetworkPanel) Render(width, height int, active bool) string {
 		graphW = 1
 	}
 
-	color := "#70a5fd" // Cyan/blue for RX
+	color := string(theme.ColorFoam)
 	if p.isTX {
-		color = "#c4a7e7" // Purple/violet for TX
+		color = string(theme.ColorIris)
 	}
 
-	lineGraph := graph.RenderLineGraph(slice, graphW, graphH, 0, 100, lipgloss.NewStyle().Foreground(lipgloss.Color(color)))
+	brailleStr := graph.RenderHistory(p.history, p.renderer, graph.GraphData{
+		Width:  graphW,
+		Height: graphH,
+		Min:    0,
+		Max:    100,
+		Color:  color,
+	})
 
 	var statsStr string
 	if p.isTX {
@@ -63,6 +70,6 @@ func (p *NetworkPanel) Render(width, height int, active bool) string {
 		statsStr = fmt.Sprintf("Rate: %.1fKB/s Pkts: %d Err: %d Drop: %d", p.latest.RxRateKB, p.latest.RxPackets, p.latest.RxErrors, p.latest.RxDrop)
 	}
 
-	content := fmt.Sprintf("%s\n%s", lineGraph, statsStr)
+	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)
 }

@@ -7,18 +7,19 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/history"
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
+	"theWatcher/internal/theme"
 )
 
 type EventsPanel struct {
-	history *history.RingBuffer[model.SystemEvent]
+	history *history.RingBuffer[metrics.SystemEvent]
 }
 
 func NewEventsPanel() *EventsPanel {
-	buf := history.NewRingBuffer[model.SystemEvent](100)
-	buf.Push(model.SystemEvent{
+	buf := history.NewRingBuffer[metrics.SystemEvent](200)
+	buf.Push(metrics.SystemEvent{
 		Timestamp: time.Now(),
-		Level:     model.LevelInfo,
+		Level:     metrics.LevelInfo,
 		Component: "System",
 		Message:   "theWatcher Observability Engine started.",
 	})
@@ -27,12 +28,12 @@ func NewEventsPanel() *EventsPanel {
 	}
 }
 
-func (p *EventsPanel) AddEvent(evt model.SystemEvent) {
+func (p *EventsPanel) AddEvent(evt metrics.SystemEvent) {
 	p.history.Push(evt)
 }
 
 func (p *EventsPanel) Title() string {
-	return "Events"
+	return "Events & Alerts"
 }
 
 func (p *EventsPanel) Render(width, height int, active bool) string {
@@ -51,11 +52,11 @@ func (p *EventsPanel) Render(width, height int, active bool) string {
 		tStr := evt.Timestamp.Format("15:04:05")
 		lvlStr := fmt.Sprintf("[%s]", evt.Level)
 
-		lvlStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ccfd8")) // Info cyan
-		if evt.Level == model.LevelWarning {
-			lvlStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#f6c177")).Bold(true)
-		} else if evt.Level == model.LevelAlert {
-			lvlStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#eb6f92")).Bold(true)
+		lvlStyle := lipgloss.NewStyle().Foreground(theme.ColorFoam)
+		if evt.Level == metrics.LevelWarning {
+			lvlStyle = lipgloss.NewStyle().Foreground(theme.ColorGold).Bold(true)
+		} else if evt.Level == metrics.LevelAlert {
+			lvlStyle = lipgloss.NewStyle().Foreground(theme.ColorLove).Bold(true)
 		}
 
 		line := fmt.Sprintf("%s %-7s %-10s : %s", tStr, lvlStyle.Render(lvlStr), evt.Component, evt.Message)

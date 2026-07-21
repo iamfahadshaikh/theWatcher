@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"theWatcher/internal/metrics"
 )
 
 func TestCPUCollector(t *testing.T) {
@@ -17,25 +18,26 @@ func TestCPUCollector(t *testing.T) {
 	}
 
 	col := NewCPUCollectorWithPath(statFile)
-	m1, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error on first collect: %v", err)
 	}
+	m1 := col.Snapshot().(metrics.CPUMetric)
 	if m1.UsagePct != 0.0 {
 		t.Errorf("expected initial usage 0.0, got %f", m1.UsagePct)
 	}
 
-	// 1000 ticks passed: 200 non-idle, 800 idle -> 20% usage
 	stat2 := "cpu  1100 0 600 9300 0 0 0 0\n"
 	err = os.WriteFile(statFile, []byte(stat2), 0644)
 	if err != nil {
 		t.Fatalf("failed writing stat2: %v", err)
 	}
 
-	m2, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error on second collect: %v", err)
 	}
+	m2 := col.Snapshot().(metrics.CPUMetric)
 	if m2.UsagePct < 19.9 || m2.UsagePct > 20.1 {
 		t.Errorf("expected ~20%% usage, got %f", m2.UsagePct)
 	}

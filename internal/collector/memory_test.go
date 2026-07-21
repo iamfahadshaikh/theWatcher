@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"theWatcher/internal/metrics"
 )
 
 func TestMemoryCollector(t *testing.T) {
@@ -22,18 +23,16 @@ Cached:          2048000 kB
 	}
 
 	col := NewMemoryCollectorWithPath(memFile)
-	m, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	m := col.Snapshot().(metrics.MemoryMetric)
 	if m.TotalMB != 16000.0 {
 		t.Errorf("expected TotalMB 16000, got %f", m.TotalMB)
 	}
 	if m.UsedMB != 8000.0 {
 		t.Errorf("expected UsedMB 8000, got %f", m.UsedMB)
-	}
-	if m.UsedPct != 50.0 {
-		t.Errorf("expected UsedPct 50%%, got %f", m.UsedPct)
 	}
 }

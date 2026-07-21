@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type NetworkCollector struct {
@@ -17,6 +17,7 @@ type NetworkCollector struct {
 	prevRx    uint64
 	prevTx    uint64
 	hasSample bool
+	snapshot  metrics.NetworkMetric
 }
 
 func NewNetworkCollector() *NetworkCollector {
@@ -27,10 +28,14 @@ func NewNetworkCollectorWithPath(path string) *NetworkCollector {
 	return &NetworkCollector{devPath: path}
 }
 
-func (c *NetworkCollector) Collect() (model.NetworkMetric, error) {
+func (c *NetworkCollector) Name() string {
+	return "Network"
+}
+
+func (c *NetworkCollector) Collect() error {
 	file, err := os.Open(c.devPath)
 	if err != nil {
-		return model.NetworkMetric{Timestamp: time.Now()}, fmt.Errorf("failed to open net dev file: %w", err)
+		return fmt.Errorf("failed to open net dev file: %w", err)
 	}
 	defer file.Close()
 
@@ -53,7 +58,7 @@ func (c *NetworkCollector) Collect() (model.NetworkMetric, error) {
 
 		iface := strings.TrimSpace(parts[0])
 		if iface == "lo" {
-			continue // Skip loopback
+			continue
 		}
 
 		fields := strings.Fields(parts[1])
@@ -103,7 +108,7 @@ func (c *NetworkCollector) Collect() (model.NetworkMetric, error) {
 	c.prevTx = totalTxBytes
 	c.hasSample = true
 
-	return model.NetworkMetric{
+	c.snapshot = metrics.NetworkMetric{
 		Timestamp: now,
 		RxBytes:   totalRxBytes,
 		TxBytes:   totalTxBytes,
@@ -115,5 +120,10 @@ func (c *NetworkCollector) Collect() (model.NetworkMetric, error) {
 		TxDrop:    totalTxDrop,
 		RxRateKB:  rxRateKB,
 		TxRateKB:  txRateKB,
-	}, nil
+	}
+	return nil
+}
+
+func (c *NetworkCollector) Snapshot() any {
+	return c.snapshot
 }

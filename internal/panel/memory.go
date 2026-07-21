@@ -3,34 +3,35 @@ package panel
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/graph"
 	"theWatcher/internal/history"
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
+	"theWatcher/internal/theme"
 )
 
 type MemoryPanel struct {
-	history *history.RingBuffer[float64]
-	latest  model.MemoryMetric
+	history  *history.RingBuffer[float64]
+	latest   metrics.MemoryMetric
+	renderer graph.Renderer
 }
 
 func NewMemoryPanel() *MemoryPanel {
 	return &MemoryPanel{
-		history: history.NewRingBuffer[float64](300),
+		history:  history.NewRingBuffer[float64](300),
+		renderer: graph.NewBrailleRenderer(),
 	}
 }
 
-func (p *MemoryPanel) UpdateMetric(m model.MemoryMetric) {
+func (p *MemoryPanel) UpdateMetric(m metrics.MemoryMetric) {
 	p.latest = m
 	p.history.Push(m.UsedPct)
 }
 
 func (p *MemoryPanel) Title() string {
-	return "Memory"
+	return "Memory Usage"
 }
 
 func (p *MemoryPanel) Render(width, height int, active bool) string {
-	slice := p.history.Slice()
 	graphH := height - 4
 	if graphH < 1 {
 		graphH = 1
@@ -40,9 +41,16 @@ func (p *MemoryPanel) Render(width, height int, active bool) string {
 		graphW = 1
 	}
 
-	lineGraph := graph.RenderLineGraph(slice, graphW, graphH, 0, 100, lipgloss.NewStyle().Foreground(lipgloss.Color("#9ccfd8")))
+	brailleStr := graph.RenderHistory(p.history, p.renderer, graph.GraphData{
+		Width:  graphW,
+		Height: graphH,
+		Min:    0,
+		Max:    100,
+		Color:  string(theme.ColorFoam),
+	})
+
 	statsStr := fmt.Sprintf("Used: %.0fM Free: %.0fM Buf: %.0fM Cache: %.0fM", p.latest.UsedMB, p.latest.FreeMB, p.latest.BufferMB, p.latest.CachedMB)
 
-	content := fmt.Sprintf("%s\n%s", lineGraph, statsStr)
+	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)
 }

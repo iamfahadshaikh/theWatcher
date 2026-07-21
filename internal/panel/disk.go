@@ -3,34 +3,35 @@ package panel
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/graph"
 	"theWatcher/internal/history"
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
+	"theWatcher/internal/theme"
 )
 
 type DiskPanel struct {
-	history *history.RingBuffer[float64]
-	latest  model.DiskMetric
+	history  *history.RingBuffer[float64]
+	latest   metrics.DiskMetric
+	renderer graph.Renderer
 }
 
 func NewDiskPanel() *DiskPanel {
 	return &DiskPanel{
-		history: history.NewRingBuffer[float64](300),
+		history:  history.NewRingBuffer[float64](300),
+		renderer: graph.NewBrailleRenderer(),
 	}
 }
 
-func (p *DiskPanel) UpdateMetric(m model.DiskMetric) {
+func (p *DiskPanel) UpdateMetric(m metrics.DiskMetric) {
 	p.latest = m
 	p.history.Push(m.ReadRateKB + m.WriteRateKB)
 }
 
 func (p *DiskPanel) Title() string {
-	return "Disk"
+	return "Disk I/O"
 }
 
 func (p *DiskPanel) Render(width, height int, active bool) string {
-	slice := p.history.Slice()
 	graphH := height - 4
 	if graphH < 1 {
 		graphH = 1
@@ -40,9 +41,16 @@ func (p *DiskPanel) Render(width, height int, active bool) string {
 		graphW = 1
 	}
 
-	lineGraph := graph.RenderLineGraph(slice, graphW, graphH, 0, 100, lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1")))
+	brailleStr := graph.RenderHistory(p.history, p.renderer, graph.GraphData{
+		Width:  graphW,
+		Height: graphH,
+		Min:    0,
+		Max:    100,
+		Color:  string(theme.ColorSuccess),
+	})
+
 	statsStr := fmt.Sprintf("R: %.1fK/s W: %.1fK/s IOPS: %d Lat: %.1fms", p.latest.ReadRateKB, p.latest.WriteRateKB, p.latest.ReadIOPS+p.latest.WriteIOPS, p.latest.LatencyMs)
 
-	content := fmt.Sprintf("%s\n%s", lineGraph, statsStr)
+	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)
 }

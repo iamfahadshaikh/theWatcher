@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type CPUCollector struct {
@@ -18,6 +18,7 @@ type CPUCollector struct {
 	sumPct    float64
 	samples   uint64
 	peakPct   float64
+	snapshot  metrics.CPUMetric
 }
 
 func NewCPUCollector() *CPUCollector {
@@ -28,22 +29,26 @@ func NewCPUCollectorWithPath(path string) *CPUCollector {
 	return &CPUCollector{statPath: path}
 }
 
-func (c *CPUCollector) Collect() (model.CPUMetric, error) {
+func (c *CPUCollector) Name() string {
+	return "CPU"
+}
+
+func (c *CPUCollector) Collect() error {
 	file, err := os.Open(c.statPath)
 	if err != nil {
-		return model.CPUMetric{Timestamp: time.Now()}, fmt.Errorf("failed to open stat file: %w", err)
+		return fmt.Errorf("failed to open stat file: %w", err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	if !scanner.Scan() {
-		return model.CPUMetric{Timestamp: time.Now()}, fmt.Errorf("empty stat file")
+		return fmt.Errorf("empty stat file")
 	}
 
 	line := scanner.Text()
 	fields := strings.Fields(line)
 	if len(fields) < 5 || fields[0] != "cpu" {
-		return model.CPUMetric{Timestamp: time.Now()}, fmt.Errorf("invalid cpu line: %s", line)
+		return fmt.Errorf("invalid cpu line: %s", line)
 	}
 
 	var values []uint64
@@ -56,14 +61,10 @@ func (c *CPUCollector) Collect() (model.CPUMetric, error) {
 	}
 
 	if len(values) < 4 {
-		return model.CPUMetric{Timestamp: time.Now()}, fmt.Errorf("insufficient cpu values")
+		return fmt.Errorf("insufficient cpu values")
 	}
 
-	user := values[0]
-	nice := values[1]
-	system := values[2]
-	idle := values[3]
-
+	user, nice, system, idle := values[0], values[1], values[2], values[3]
 	var iowait, irq, softirq, steal uint64
 	if len(values) > 4 {
 		iowait = values[4]
@@ -85,7 +86,8 @@ func (c *CPUCollector) Collect() (model.CPUMetric, error) {
 	if c.prevTotal == 0 {
 		c.prevIdle = idleTotal
 		c.prevTotal = total
-		return model.CPUMetric{Timestamp: time.Now(), UsagePct: 0.0}, nil
+		c.snapshot = metrics.CPUMetric{Timestamp: time.Now(), UsagePct: 0.0}
+		return nil
 	}
 
 	totalDelta := float64(total - c.prevTotal)
@@ -113,10 +115,15 @@ func (c *CPUCollector) Collect() (model.CPUMetric, error) {
 		c.peakPct = usagePct
 	}
 
-	return model.CPUMetric{
+	c.snapshot = metrics.CPUMetric{
 		Timestamp:  time.Now(),
 		UsagePct:   usagePct,
 		AveragePct: avgPct,
 		PeakPct:    c.peakPct,
-	}, nil
+	}
+	return nil
+}
+
+func (c *CPUCollector) Snapshot() any {
+	return c.snapshot
 }

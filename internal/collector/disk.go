@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type DiskCollector struct {
@@ -20,6 +20,7 @@ type DiskCollector struct {
 	prevWriteIO   uint64
 	prevIOTicks   uint64
 	hasSample     bool
+	snapshot      metrics.DiskMetric
 }
 
 func NewDiskCollector() *DiskCollector {
@@ -30,10 +31,14 @@ func NewDiskCollectorWithPath(path string) *DiskCollector {
 	return &DiskCollector{diskstatsPath: path}
 }
 
-func (c *DiskCollector) Collect() (model.DiskMetric, error) {
+func (c *DiskCollector) Name() string {
+	return "Disk"
+}
+
+func (c *DiskCollector) Collect() error {
 	file, err := os.Open(c.diskstatsPath)
 	if err != nil {
-		return model.DiskMetric{Timestamp: time.Now()}, fmt.Errorf("failed to open diskstats file: %w", err)
+		return fmt.Errorf("failed to open diskstats file: %w", err)
 	}
 	defer file.Close()
 
@@ -49,7 +54,6 @@ func (c *DiskCollector) Collect() (model.DiskMetric, error) {
 		}
 
 		devName := fields[2]
-		// Filter physical disks (sd*, vd*, nvme*n1, etc.)
 		if strings.HasPrefix(devName, "loop") || strings.HasPrefix(devName, "ram") {
 			continue
 		}
@@ -105,7 +109,7 @@ func (c *DiskCollector) Collect() (model.DiskMetric, error) {
 	c.prevIOTicks = totalIOTicks
 	c.hasSample = true
 
-	return model.DiskMetric{
+	c.snapshot = metrics.DiskMetric{
 		Timestamp:   now,
 		ReadBytes:   totalReadBytes,
 		WriteBytes:  totalWriteBytes,
@@ -114,5 +118,10 @@ func (c *DiskCollector) Collect() (model.DiskMetric, error) {
 		ReadRateKB:  readRateKB,
 		WriteRateKB: writeRateKB,
 		LatencyMs:   latencyMs,
-	}, nil
+	}
+	return nil
+}
+
+func (c *DiskCollector) Snapshot() any {
+	return c.snapshot
 }

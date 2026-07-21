@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"theWatcher/internal/metrics"
 	"time"
 )
 
@@ -19,10 +20,11 @@ func TestDiskCollector(t *testing.T) {
 	}
 
 	col := NewDiskCollectorWithPath(diskFile)
-	m1, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	m1 := col.Snapshot().(metrics.DiskMetric)
 	if m1.ReadBytes != 2000*512 || m1.WriteBytes != 1000*512 {
 		t.Errorf("expected sector byte calculations, got read=%d write=%d", m1.ReadBytes, m1.WriteBytes)
 	}
@@ -33,10 +35,11 @@ func TestDiskCollector(t *testing.T) {
 `
 	_ = os.WriteFile(diskFile, []byte(content2), 0644)
 
-	m2, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	m2 := col.Snapshot().(metrics.DiskMetric)
 	if m2.ReadRateKB <= 0 || m2.WriteRateKB <= 0 {
 		t.Errorf("expected positive disk throughput rates, got read=%f write=%f", m2.ReadRateKB, m2.WriteRateKB)
 	}

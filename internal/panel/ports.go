@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"strings"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type PortsPanel struct {
-	ports []model.PortInfo
+	ports []metrics.PortInfo
 }
 
 func NewPortsPanel() *PortsPanel {
 	return &PortsPanel{}
 }
 
-func (p *PortsPanel) UpdatePorts(ports []model.PortInfo) {
+func (p *PortsPanel) UpdatePorts(ports []metrics.PortInfo) {
 	p.ports = ports
 }
 

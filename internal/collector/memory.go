@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type MemoryCollector struct {
 	meminfoPath string
+	snapshot    metrics.MemoryMetric
 }
 
 func NewMemoryCollector() *MemoryCollector {
@@ -23,10 +24,14 @@ func NewMemoryCollectorWithPath(path string) *MemoryCollector {
 	return &MemoryCollector{meminfoPath: path}
 }
 
-func (c *MemoryCollector) Collect() (model.MemoryMetric, error) {
+func (c *MemoryCollector) Name() string {
+	return "Memory"
+}
+
+func (c *MemoryCollector) Collect() error {
 	file, err := os.Open(c.meminfoPath)
 	if err != nil {
-		return model.MemoryMetric{Timestamp: time.Now()}, fmt.Errorf("failed to open meminfo file: %w", err)
+		return fmt.Errorf("failed to open meminfo file: %w", err)
 	}
 	defer file.Close()
 
@@ -88,7 +93,7 @@ func (c *MemoryCollector) Collect() (model.MemoryMetric, error) {
 		usedPct = (usedMB / totalMB) * 100.0
 	}
 
-	return model.MemoryMetric{
+	c.snapshot = metrics.MemoryMetric{
 		Timestamp: time.Now(),
 		TotalMB:   totalMB,
 		UsedMB:    usedMB,
@@ -96,5 +101,10 @@ func (c *MemoryCollector) Collect() (model.MemoryMetric, error) {
 		CachedMB:  cachedMB,
 		BufferMB:  buffersMB,
 		UsedPct:   usedPct,
-	}, nil
+	}
+	return nil
+}
+
+func (c *MemoryCollector) Snapshot() any {
+	return c.snapshot
 }

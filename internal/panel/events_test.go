@@ -5,18 +5,18 @@ import (
 	"testing"
 	"time"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 func TestEventsPanel(t *testing.T) {
 	p := NewEventsPanel()
-	if p.Title() != "Events" {
-		t.Errorf("expected title Events, got %s", p.Title())
+	if p.Title() != "Events & Alerts" {
+		t.Errorf("expected title Events & Alerts, got %s", p.Title())
 	}
 
-	p.AddEvent(model.SystemEvent{
+	p.AddEvent(metrics.SystemEvent{
 		Timestamp: time.Now(),
-		Level:     model.LevelWarning,
+		Level:     metrics.LevelWarning,
 		Component: "CPU",
 		Message:   "High CPU usage detected > 80%",
 	})

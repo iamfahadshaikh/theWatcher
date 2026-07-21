@@ -5,11 +5,12 @@ import (
 	"os"
 	"strings"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type ConnectionsCollector struct {
 	tcpPaths []string
+	snapshot metrics.ConnSummary
 }
 
 func NewConnectionsCollector() *ConnectionsCollector {
@@ -24,8 +25,12 @@ func NewConnectionsCollectorWithPaths(paths []string) *ConnectionsCollector {
 	}
 }
 
-func (c *ConnectionsCollector) Collect() (model.ConnSummary, error) {
-	var summary model.ConnSummary
+func (c *ConnectionsCollector) Name() string {
+	return "Connections"
+}
+
+func (c *ConnectionsCollector) Collect() error {
+	var summary metrics.ConnSummary
 
 	for _, path := range c.tcpPaths {
 		file, err := os.Open(path)
@@ -66,5 +71,10 @@ func (c *ConnectionsCollector) Collect() (model.ConnSummary, error) {
 		file.Close()
 	}
 
-	return summary, nil
+	c.snapshot = summary
+	return nil
+}
+
+func (c *ConnectionsCollector) Snapshot() any {
+	return c.snapshot
 }

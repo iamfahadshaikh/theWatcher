@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"strings"
 
-	"theWatcher/internal/model"
+	"github.com/charmbracelet/lipgloss"
+	"theWatcher/internal/metrics"
+	"theWatcher/internal/theme"
 )
 
 type LoginPanel struct {
-	events []model.LoginEvent
+	events []metrics.LoginEvent
 }
 
 func NewLoginPanel() *LoginPanel {
 	return &LoginPanel{}
 }
 
-func (p *LoginPanel) UpdateLoginEvents(events []model.LoginEvent) {
+func (p *LoginPanel) UpdateLoginEvents(events []metrics.LoginEvent) {
 	p.events = events
 }
 
@@ -45,7 +47,20 @@ func (p *LoginPanel) Render(width, height int, active bool) string {
 		if len(tStr) > 18 {
 			tStr = tStr[:18]
 		}
-		row := fmt.Sprintf("%-20s %-12s %-10s %s", tStr, evt.User, evt.Type, evt.From)
+
+		userStyle := lipgloss.NewStyle().Foreground(theme.ColorFoam)
+		if evt.User == "root" {
+			userStyle = lipgloss.NewStyle().Foreground(theme.ColorLove).Bold(true)
+		} else if strings.Contains(evt.Type, "sudo") {
+			userStyle = lipgloss.NewStyle().Foreground(theme.ColorGold).Bold(true)
+		} else if strings.Contains(evt.Type, "docker") {
+			userStyle = lipgloss.NewStyle().Foreground(theme.ColorIris)
+		} else if evt.Type == "SESSION" {
+			userStyle = lipgloss.NewStyle().Foreground(theme.ColorSuccess)
+		}
+
+		uStr := userStyle.Render(evt.User)
+		row := fmt.Sprintf("%-20s %-12s %-10s %s", tStr, uStr, evt.Type, evt.From)
 		lines = append(lines, row)
 	}
 

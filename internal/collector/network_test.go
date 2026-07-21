@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"theWatcher/internal/metrics"
 	"time"
 )
 
@@ -21,11 +22,11 @@ func TestNetworkCollector(t *testing.T) {
 	}
 
 	col := NewNetworkCollectorWithPath(netFile)
-	m1, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
+	m1 := col.Snapshot().(metrics.NetworkMetric)
 	if m1.RxBytes != 1024000 || m1.TxBytes != 2048000 {
 		t.Errorf("expected 1024000 / 2048000 bytes, got %d / %d", m1.RxBytes, m1.TxBytes)
 	}
@@ -37,10 +38,11 @@ func TestNetworkCollector(t *testing.T) {
   eth0: 2048000    2000    0    0    0     0          0         0  4096000    4000    0    0    0     0       0          0
 `
 	_ = os.WriteFile(netFile, []byte(content2), 0644)
-	m2, err := col.Collect()
+	err = col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	m2 := col.Snapshot().(metrics.NetworkMetric)
 	if m2.RxRateKB <= 0 || m2.TxRateKB <= 0 {
 		t.Errorf("expected positive transfer rates, got rx=%f tx=%f", m2.RxRateKB, m2.TxRateKB)
 	}

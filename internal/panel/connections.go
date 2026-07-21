@@ -5,18 +5,19 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/graph"
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
+	"theWatcher/internal/theme"
 )
 
 type ConnectionsPanel struct {
-	summary model.ConnSummary
+	summary metrics.ConnSummary
 }
 
 func NewConnectionsPanel() *ConnectionsPanel {
 	return &ConnectionsPanel{}
 }
 
-func (p *ConnectionsPanel) UpdateConnections(summary model.ConnSummary) {
+func (p *ConnectionsPanel) UpdateConnections(summary metrics.ConnSummary) {
 	p.summary = summary
 }
 
@@ -31,8 +32,8 @@ func (p *ConnectionsPanel) Render(width, height int, active bool) string {
 		maxVal = 10
 	}
 
-	barStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ccfd8"))
-	lblStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#e0def4"))
+	barStyle := lipgloss.NewStyle().Foreground(theme.ColorFoam)
+	lblStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorText)
 
 	b1 := graph.RenderBar("ESTAB ", float64(p.summary.Established), maxVal, width-6, barStyle, lblStyle)
 	b2 := graph.RenderBar("LISTEN", float64(p.summary.Listen), maxVal, width-6, barStyle, lblStyle)

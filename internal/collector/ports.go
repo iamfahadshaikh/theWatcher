@@ -6,12 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type PortsCollector struct {
-	tcpPath string
-	udpPath string
+	tcpPath  string
+	udpPath  string
+	snapshot []metrics.PortInfo
 }
 
 func NewPortsCollector() *PortsCollector {
@@ -28,26 +29,35 @@ func NewPortsCollectorWithPaths(tcpPath, udpPath string) *PortsCollector {
 	}
 }
 
-func (c *PortsCollector) Collect() ([]model.PortInfo, error) {
-	var ports []model.PortInfo
+func (c *PortsCollector) Name() string {
+	return "Ports"
+}
 
-	tcpPorts := parseProcNetSockets(c.tcpPath, "TCP", "0A") // 0A is LISTEN state in hex
-	udpPorts := parseProcNetSockets(c.udpPath, "UDP", "07") // 07 is CLOSE/UNCONN for UDP
+func (c *PortsCollector) Collect() error {
+	var ports []metrics.PortInfo
+
+	tcpPorts := parseProcNetSockets(c.tcpPath, "TCP", "0A")
+	udpPorts := parseProcNetSockets(c.udpPath, "UDP", "07")
 
 	ports = append(ports, tcpPorts...)
 	ports = append(ports, udpPorts...)
 
-	return ports, nil
+	c.snapshot = ports
+	return nil
 }
 
-func parseProcNetSockets(path, proto, stateFilter string) []model.PortInfo {
+func (c *PortsCollector) Snapshot() any {
+	return c.snapshot
+}
+
+func parseProcNetSockets(path, proto, stateFilter string) []metrics.PortInfo {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil
 	}
 	defer file.Close()
 
-	var results []model.PortInfo
+	var results []metrics.PortInfo
 	scanner := bufio.NewScanner(file)
 	headerSkipped := false
 
@@ -80,7 +90,7 @@ func parseProcNetSockets(path, proto, stateFilter string) []model.PortInfo {
 			continue
 		}
 
-		results = append(results, model.PortInfo{
+		results = append(results, metrics.PortInfo{
 			Protocol: proto,
 			Port:     strconv.FormatInt(portNum, 10),
 			Process:  "-",

@@ -1,27 +1,29 @@
 package app
 
 import (
-	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"theWatcher/internal/config"
+	"theWatcher/internal/layout"
+	"theWatcher/internal/metrics"
 	"theWatcher/internal/panel"
 )
 
-// TickMsg represents a periodic timer event.
 type TickMsg time.Time
 
-// App holds the primary application state.
 type App struct {
-	width      int
-	height     int
-	hostname   string
-	timeframe  string
-	activeIdx  int
-	showHelp   bool
-	err        error
-	tickPeriod time.Duration
-	collectors *Collectors
+	width        int
+	height       int
+	timeframe    string
+	showHelp     bool
+	tickPeriod   time.Duration
+	focusManager *layout.FocusManager
+	collectors   *Collectors
+	latestSystem metrics.SystemInfo
+	latestCPU    metrics.CPUMetric
+	latestMem    metrics.MemoryMetric
+	latestNet    metrics.NetworkMetric
 
 	cpuPanel    *panel.CPUPanel
 	memPanel    *panel.MemoryPanel
@@ -39,13 +41,7 @@ type App struct {
 	panels []panel.Panel
 }
 
-// New constructs a new App model with all dashboard panels and collectors.
 func New() App {
-	host, err := os.Hostname()
-	if err != nil || host == "" {
-		host = "localhost"
-	}
-
 	cpuP := panel.NewCPUPanel()
 	memP := panel.NewMemoryPanel()
 	diskP := panel.NewDiskPanel()
@@ -65,28 +61,26 @@ func New() App {
 	}
 
 	return App{
-		hostname:    host,
-		timeframe:   "30s",
-		activeIdx:   0,
-		tickPeriod:  500 * time.Millisecond,
-		collectors:  NewCollectors(),
-		cpuPanel:    cpuP,
-		memPanel:    memP,
-		diskPanel:   diskP,
-		netRxPanel:  netRxP,
-		netTxPanel:  netTxP,
-		procBPanel:  procBP,
-		portsPanel:  portsP,
-		connPanel:   connP,
-		procsPanel:  procsP,
-		dockerPanel: dockerP,
-		loginPanel:  loginP,
-		eventsPanel: eventsP,
-		panels:      panels,
+		timeframe:    "30s",
+		tickPeriod:   config.RefreshRate,
+		focusManager: layout.NewFocusManager(),
+		collectors:   NewCollectors(),
+		cpuPanel:     cpuP,
+		memPanel:     memP,
+		diskPanel:    diskP,
+		netRxPanel:   netRxP,
+		netTxPanel:   netTxP,
+		procBPanel:   procBP,
+		portsPanel:   portsP,
+		connPanel:    connP,
+		procsPanel:   procsP,
+		dockerPanel:  dockerP,
+		loginPanel:   loginP,
+		eventsPanel:  eventsP,
+		panels:       panels,
 	}
 }
 
-// Init initializes the BubbleTea event loop with a periodic tick and initial metric fetch.
 func (a App) Init() tea.Cmd {
 	return tea.Batch(
 		tickCmd(a.tickPeriod),

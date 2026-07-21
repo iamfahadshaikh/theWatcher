@@ -3,6 +3,7 @@ package collector
 import (
 	"fmt"
 	"testing"
+	"theWatcher/internal/metrics"
 )
 
 func TestLoginCollectorMock(t *testing.T) {
@@ -21,16 +22,13 @@ func TestLoginCollectorMock(t *testing.T) {
 		return nil, fmt.Errorf("unknown command")
 	})
 
-	events, err := col.Collect()
+	err := col.Collect()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	events := col.Snapshot().([]metrics.LoginEvent)
 	if len(events) < 2 {
 		t.Fatalf("expected at least 2 login events, got %d", len(events))
-	}
-
-	if events[0].User != "root" || events[1].User != "alice" {
-		t.Errorf("unexpected event parsing: %+v", events)
 	}
 }

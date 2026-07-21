@@ -8,20 +8,24 @@ import (
 
 var sparkBlocks = []rune{' ', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
 
-// RenderSparkline converts a slice of floats into a single-line block sparkline.
-func RenderSparkline(data []float64, width int, style lipgloss.Style) string {
-	if len(data) == 0 || width <= 0 {
+type SparkRenderer struct{}
+
+func NewSparkRenderer() *SparkRenderer {
+	return &SparkRenderer{}
+}
+
+func (s *SparkRenderer) Render(data GraphData) string {
+	if len(data.Samples) == 0 || data.Width <= 0 {
 		return ""
 	}
 
-	// Fit data to width
-	points := data
-	if len(data) > width {
-		points = data[len(data)-width:]
+	points := data.Samples
+	if len(points) > data.Width {
+		points = points[len(points)-data.Width:]
 	}
 
-	minVal := 0.0
-	maxVal := 100.0 // Default percent scale if points within 0..100
+	minVal := data.Min
+	maxVal := data.Max
 	for _, v := range points {
 		if v > maxVal {
 			maxVal = v
@@ -48,5 +52,21 @@ func RenderSparkline(data []float64, width int, style lipgloss.Style) string {
 		runes[i] = sparkBlocks[idx]
 	}
 
-	return style.Render(string(runes))
+	color := data.Color
+	if color == "" {
+		color = "#eb6f92"
+	}
+
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(string(runes))
+}
+
+// RenderSparkline helper function
+func RenderSparkline(data []float64, width int, style lipgloss.Style) string {
+	r := NewSparkRenderer()
+	return r.Render(GraphData{
+		Samples: data,
+		Width:   width,
+		Min:     0,
+		Max:     100,
+	})
 }

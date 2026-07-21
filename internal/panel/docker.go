@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type DockerPanel struct {
-	stats       []model.DockerStat
+	stats       []metrics.DockerStat
 	unavailable bool
 }
 
@@ -16,7 +16,7 @@ func NewDockerPanel() *DockerPanel {
 	return &DockerPanel{}
 }
 
-func (p *DockerPanel) UpdateDockerStats(stats []model.DockerStat, err error) {
+func (p *DockerPanel) UpdateDockerStats(stats []metrics.DockerStat, err error) {
 	if err != nil || stats == nil {
 		p.unavailable = true
 		p.stats = nil
@@ -27,7 +27,7 @@ func (p *DockerPanel) UpdateDockerStats(stats []model.DockerStat, err error) {
 }
 
 func (p *DockerPanel) Title() string {
-	return "Docker Containers"
+	return "Docker Stats"
 }
 
 func (p *DockerPanel) Render(width, height int, active bool) string {
@@ -39,7 +39,8 @@ func (p *DockerPanel) Render(width, height int, active bool) string {
 		return RenderContainer(p.Title(), "No active Docker containers.", width, height, active)
 	}
 
-	header := fmt.Sprintf("%-14s %-16s %-8s %-20s %s", "CONTAINER ID", "NAME", "CPU %", "MEM USAGE / LIMIT", "NET I/O")
+	header := fmt.Sprintf("%-14s %-16s %-6s %-10s %-10s %-6s %-16s %-16s %-4s",
+		"CONTAINER ID", "NAME", "CPU%", "MEM USAGE", "LIMIT", "MEM%", "NET RX / TX", "BLOCK R / W", "PIDS")
 	var lines []string
 	lines = append(lines, header)
 
@@ -52,7 +53,10 @@ func (p *DockerPanel) Render(width, height int, active bool) string {
 		if i >= maxLines {
 			break
 		}
-		row := fmt.Sprintf("%-14s %-16s %-8.1f %-20s %s", stat.ID, stat.Name, stat.CPUPct, stat.MemUsage, stat.NetIO)
+		netStr := fmt.Sprintf("%s/%s", stat.NetRx, stat.NetTx)
+		blockStr := fmt.Sprintf("%s/%s", stat.BlockRead, stat.BlockWrite)
+		row := fmt.Sprintf("%-14s %-16s %-6.1f %-10s %-10s %-6s %-16s %-16s %-4d",
+			stat.ID, stat.Name, stat.CPUPct, stat.MemUsage, stat.MemLimit, stat.MemPct, netStr, blockStr, stat.PIDs)
 		lines = append(lines, row)
 	}
 

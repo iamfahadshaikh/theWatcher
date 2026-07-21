@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
-// Update handles all BubbleTea messages, input events, and metric updates.
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -25,14 +24,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "5":
 			a.timeframe = "1h"
 		case "tab":
-			if len(a.panels) > 0 {
-				a.activeIdx = (a.activeIdx + 1) % len(a.panels)
-			}
+			a.focusManager.NextFocus()
 		case "shift+tab":
-			if len(a.panels) > 0 {
-				a.activeIdx = (a.activeIdx - 1 + len(a.panels)) % len(a.panels)
-			}
-		case "h":
+			a.focusManager.PrevFocus()
+		case " ":
+			a.focusManager.ToggleMaximize()
+		case "esc":
+			a.focusManager.ResetMaximize()
+		case "h", "?":
 			a.showHelp = !a.showHelp
 		}
 
@@ -47,6 +46,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 
 	case MetricsMsg:
+		a.latestSystem = msg.System
+		a.latestCPU = msg.CPU
+		a.latestMem = msg.Memory
+		a.latestNet = msg.Network
+
 		a.cpuPanel.UpdateMetric(msg.CPU)
 		a.memPanel.UpdateMetric(msg.Memory)
 		a.diskPanel.UpdateMetric(msg.Disk)
@@ -59,19 +63,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dockerPanel.UpdateDockerStats(msg.Docker, msg.DockerErr)
 		a.loginPanel.UpdateLoginEvents(msg.Logins)
 
-		// Threshold Alert Generation
 		if msg.CPU.UsagePct > 80.0 {
-			a.eventsPanel.AddEvent(model.SystemEvent{
+			a.eventsPanel.AddEvent(metrics.SystemEvent{
 				Timestamp: msg.CollectedAt,
-				Level:     model.LevelWarning,
+				Level:     metrics.LevelWarning,
 				Component: "CPU",
 				Message:   fmt.Sprintf("High CPU usage: %.1f%%", msg.CPU.UsagePct),
 			})
 		}
 		if msg.Memory.UsedPct > 85.0 {
-			a.eventsPanel.AddEvent(model.SystemEvent{
+			a.eventsPanel.AddEvent(metrics.SystemEvent{
 				Timestamp: msg.CollectedAt,
-				Level:     model.LevelWarning,
+				Level:     metrics.LevelWarning,
 				Component: "Memory",
 				Message:   fmt.Sprintf("High Memory usage: %.1f%%", msg.Memory.UsedPct),
 			})

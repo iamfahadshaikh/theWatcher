@@ -7,12 +7,12 @@ import (
 
 func TestPanelRendering(t *testing.T) {
 	cpu := NewCPUPanel()
-	if cpu.Title() != "CPU" {
-		t.Errorf("expected CPU title, got %s", cpu.Title())
+	if cpu.Title() != "CPU Usage (%)" {
+		t.Errorf("expected CPU Usage (%%) title, got %s", cpu.Title())
 	}
 
 	rendered := cpu.Render(40, 10, true)
-	if !strings.Contains(rendered, "CPU ▲▼") {
+	if !strings.Contains(rendered, "CPU Usage (%) ▲▼") {
 		t.Errorf("expected active title indicator in rendered output: %s", rendered)
 	}
 

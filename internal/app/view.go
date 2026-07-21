@@ -5,119 +5,90 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"theWatcher/internal/layout"
+	"theWatcher/internal/theme"
+	"theWatcher/internal/widgets"
 )
 
-var (
-	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#eb6f92")).
-			Background(lipgloss.Color("#1f1d2e")).
-			Padding(0, 1)
+var helpBoxStyle = lipgloss.NewStyle().
+	Border(theme.MaximizedBorder).
+	BorderForeground(theme.ColorGold).
+	Padding(1, 2)
 
-	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#9ccfd8")).
-			Background(lipgloss.Color("#1f1d2e")).
-			Padding(0, 1)
-
-	timeStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#f6c177")).
-			Background(lipgloss.Color("#1f1d2e")).
-			Padding(0, 1)
-
-	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#908caa")).
-			Background(lipgloss.Color("#191724")).
-			Padding(0, 1)
-
-	helpBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.DoubleBorder()).
-			BorderForeground(lipgloss.Color("#f6c177")).
-			Padding(1, 2)
-)
-
-// View renders the full dashboard grid layout.
 func (a App) View() string {
 	if a.width <= 0 || a.height <= 0 {
 		return "Initializing theWatcher..."
 	}
 
-	layout := ComputeLayout(a.width, a.height)
+	lay := layout.ComputeLayout(a.width, a.height)
+	currTime := time.Now().Format("15:04:05 MST")
 
-	// Render Header
-	title := headerStyle.Render("theWatcher")
-	host := infoStyle.Render(fmt.Sprintf("HOST: %s", a.hostname))
-	tf := infoStyle.Render(fmt.Sprintf("TF: %s", a.timeframe))
-	currTime := timeStyle.Render(time.Now().Format("15:04:05 MST"))
+	headerBar := widgets.RenderHeader(a.latestSystem, currTime, a.timeframe, lay.Width)
 
-	leftHeader := lipgloss.JoinHorizontal(lipgloss.Center, title, host, tf)
-	spaceLen := layout.Width - lipgloss.Width(leftHeader) - lipgloss.Width(currTime)
-	if spaceLen < 0 {
-		spaceLen = 0
-	}
-	spacer := lipgloss.NewStyle().Background(lipgloss.Color("#1f1d2e")).Render(fmt.Sprintf("%*s", spaceLen, ""))
-	headerBar := lipgloss.JoinHorizontal(lipgloss.Center, leftHeader, spacer, currTime)
-
-	// Render Footer
-	footerText := "q: Quit | 1-5: Timeframe | Tab: Switch Panel | h: Help"
-	footerBar := footerStyle.Width(layout.Width).Render(footerText)
+	footerBar := widgets.RenderFooter(widgets.StatusSummary{
+		CPU:       a.latestCPU.UsagePct,
+		RAM:       a.latestMem.UsedPct,
+		RxRateKB:  a.latestNet.RxRateKB,
+		TxRateKB:  a.latestNet.TxRateKB,
+		Timeframe: a.timeframe,
+	}, lay.Width)
 
 	if a.showHelp {
-		helpText := "=== theWatcher Help ===\n\n" +
+		helpText := fmt.Sprintf("=== theWatcher Help ===\n\n" +
 			"q / Ctrl+C : Quit application\n" +
+			"Tab        : Move focus to next panel\n" +
+			"Shift+Tab  : Move focus to previous panel\n" +
+			"Space      : Toggle full-screen zoom on focused panel\n" +
+			"Esc        : Restore standard multi-panel grid view\n" +
 			"1 - 5      : Change timeframe (30s, 1m, 5m, 15m, 1h)\n" +
-			"Tab        : Focus next panel\n" +
-			"Shift+Tab  : Focus previous panel\n" +
-			"h          : Toggle this help screen"
-		bodyView := helpBoxStyle.Width(layout.Width - 4).Height(layout.BodyHeight - 2).Render(helpText)
+			"h / ?      : Toggle this help overlay")
+		bodyView := helpBoxStyle.Width(lay.Width - 4).Height(lay.BodyHeight - 2).Render(helpText)
 		return lipgloss.JoinVertical(lipgloss.Left, headerBar, bodyView, footerBar)
 	}
 
-	// Calculate widths
-	w3 := layout.Width / 3
-	w3Rem := layout.Width - (w3 * 2)
-	w2 := layout.Width / 2
-	w2Rem := layout.Width - w2
-	wFull := layout.Width
+	activeIdx := int(a.focusManager.ActiveID)
 
-	// Calculate row heights (total = layout.BodyHeight)
-	// Allocate heights proportionally for 7 rows
-	rowH := layout.BodyHeight / 7
+	// Full-screen Maximized Mode
+	if a.focusManager.Maximized && activeIdx >= 0 && activeIdx < len(a.panels) {
+		maxBody := a.panels[activeIdx].Render(lay.Width, lay.BodyHeight, true)
+		return lipgloss.JoinVertical(lipgloss.Left, headerBar, maxBody, footerBar)
+	}
+
+	// Multi-panel Grid Mode
+	w3 := lay.Width / 3
+	w3Rem := lay.Width - (w3 * 2)
+	w2 := lay.Width / 2
+	w2Rem := lay.Width - w2
+	wFull := lay.Width
+
+	rowH := lay.BodyHeight / 7
 	if rowH < 3 {
 		rowH = 3
 	}
 
-	// Render Row 1: CPU, Memory, Disk
-	r1p0 := a.panels[0].Render(w3, rowH, a.activeIdx == 0)
-	r1p1 := a.panels[1].Render(w3, rowH, a.activeIdx == 1)
-	r1p2 := a.panels[2].Render(w3Rem, rowH, a.activeIdx == 2)
+	r1p0 := a.panels[0].Render(w3, rowH, activeIdx == 0)
+	r1p1 := a.panels[1].Render(w3, rowH, activeIdx == 1)
+	r1p2 := a.panels[2].Render(w3Rem, rowH, activeIdx == 2)
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, r1p0, r1p1, r1p2)
 
-	// Render Row 2: Net RX, Net TX, Process Birth
-	r2p3 := a.panels[3].Render(w3, rowH, a.activeIdx == 3)
-	r2p4 := a.panels[4].Render(w3, rowH, a.activeIdx == 4)
-	r2p5 := a.panels[5].Render(w3Rem, rowH, a.activeIdx == 5)
+	r2p3 := a.panels[3].Render(w3, rowH, activeIdx == 3)
+	r2p4 := a.panels[4].Render(w3, rowH, activeIdx == 4)
+	r2p5 := a.panels[5].Render(w3Rem, rowH, activeIdx == 5)
 	row2 := lipgloss.JoinHorizontal(lipgloss.Top, r2p3, r2p4, r2p5)
 
-	// Render Row 3: Listening Ports, Active Connections
-	r3p6 := a.panels[6].Render(w2, rowH, a.activeIdx == 6)
-	r3p7 := a.panels[7].Render(w2Rem, rowH, a.activeIdx == 7)
+	r3p6 := a.panels[6].Render(w2, rowH, activeIdx == 6)
+	r3p7 := a.panels[7].Render(w2Rem, rowH, activeIdx == 7)
 	row3 := lipgloss.JoinHorizontal(lipgloss.Top, r3p6, r3p7)
 
-	// Render Row 4: Top Processes
-	row4 := a.panels[8].Render(wFull, rowH, a.activeIdx == 8)
+	row4 := a.panels[8].Render(wFull, rowH, activeIdx == 8)
+	row5 := a.panels[9].Render(wFull, rowH, activeIdx == 9)
+	row6 := a.panels[10].Render(wFull, rowH, activeIdx == 10)
 
-	// Render Row 5: Docker Containers
-	row5 := a.panels[9].Render(wFull, rowH, a.activeIdx == 9)
-
-	// Render Row 6: Login Timeline
-	row6 := a.panels[10].Render(wFull, rowH, a.activeIdx == 10)
-
-	// Render Row 7: Events
-	remH := layout.BodyHeight - (rowH * 6)
+	remH := lay.BodyHeight - (rowH * 6)
 	if remH < 3 {
 		remH = 3
 	}
-	row7 := a.panels[11].Render(wFull, remH, a.activeIdx == 11)
+	row7 := a.panels[11].Render(wFull, remH, activeIdx == 11)
 
 	dashboard := lipgloss.JoinVertical(lipgloss.Left, row1, row2, row3, row4, row5, row6, row7)
 	return lipgloss.JoinVertical(lipgloss.Left, headerBar, dashboard, footerBar)

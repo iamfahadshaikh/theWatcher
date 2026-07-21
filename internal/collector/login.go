@@ -5,13 +5,14 @@ import (
 	"os/exec"
 	"strings"
 
-	"theWatcher/internal/model"
+	"theWatcher/internal/metrics"
 )
 
 type CommandRunner func(name string, args ...string) ([]byte, error)
 
 type LoginCollector struct {
-	runner CommandRunner
+	runner   CommandRunner
+	snapshot []metrics.LoginEvent
 }
 
 func NewLoginCollector() *LoginCollector {
@@ -37,10 +38,13 @@ func defaultCommandRunner(name string, args ...string) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func (c *LoginCollector) Collect() ([]model.LoginEvent, error) {
-	var events []model.LoginEvent
+func (c *LoginCollector) Name() string {
+	return "Login"
+}
 
-	// 1. Check active logins with 'who'
+func (c *LoginCollector) Collect() error {
+	var events []metrics.LoginEvent
+
 	if out, err := c.runner("who"); err == nil && len(out) > 0 {
 		lines := strings.Split(string(out), "\n")
 		for _, l := range lines {
@@ -49,7 +53,7 @@ func (c *LoginCollector) Collect() ([]model.LoginEvent, error) {
 				u := fields[0]
 				tty := fields[1]
 				tStr := strings.Join(fields[2:], " ")
-				events = append(events, model.LoginEvent{
+				events = append(events, metrics.LoginEvent{
 					Time: tStr,
 					User: u,
 					Type: "SESSION",
@@ -59,7 +63,6 @@ func (c *LoginCollector) Collect() ([]model.LoginEvent, error) {
 		}
 	}
 
-	// 2. Check recent logins with 'last -n 5'
 	if out, err := c.runner("last", "-n", "5"); err == nil && len(out) > 0 {
 		lines := strings.Split(string(out), "\n")
 		for _, l := range lines {
@@ -72,7 +75,7 @@ func (c *LoginCollector) Collect() ([]model.LoginEvent, error) {
 				tty := fields[1]
 				from := fields[2]
 				tStr := strings.Join(fields[3:], " ")
-				events = append(events, model.LoginEvent{
+				events = append(events, metrics.LoginEvent{
 					Time: tStr,
 					User: u,
 					Type: "HISTORIC",
@@ -82,7 +85,17 @@ func (c *LoginCollector) Collect() ([]model.LoginEvent, error) {
 		}
 	}
 
-	return events, nil
+	// Reverse to show newest events first
+	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
+		events[i], events[j] = events[j], events[i]
+	}
+
+	c.snapshot = events
+	return nil
+}
+
+func (c *LoginCollector) Snapshot() any {
+	return c.snapshot
 }
 
 func fmtFrom(tty, from string) string {
