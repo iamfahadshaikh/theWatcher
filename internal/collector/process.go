@@ -1,0 +1,129 @@
+package collector
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"theWatcher/internal/model"
+)
+
+type ProcessCollector struct {
+	procDir   string
+	seenPIDs  map[int]bool
+	newCount  int
+	prevTime  time.Time
+	birthRate float64
+}
+
+func NewProcessCollector() *ProcessCollector {
+	return &ProcessCollector{
+		procDir:  "/proc",
+		seenPIDs: make(map[int]bool),
+		prevTime: time.Now(),
+	}
+}
+
+func NewProcessCollectorWithPath(procDir string) *ProcessCollector {
+	return &ProcessCollector{
+		procDir:  procDir,
+		seenPIDs: make(map[int]bool),
+		prevTime: time.Now(),
+	}
+}
+
+func (c *ProcessCollector) Collect() ([]model.ProcessInfo, float64, error) {
+	entries, err := os.ReadDir(c.procDir)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed reading proc dir: %w", err)
+	}
+
+	var processes []model.ProcessInfo
+	currentPIDs := make(map[int]bool)
+	newPIDsThisInterval := 0
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue
+		}
+
+		currentPIDs[pid] = true
+		if len(c.seenPIDs) > 0 && !c.seenPIDs[pid] {
+			newPIDsThisInterval++
+		}
+
+		pInfo := c.parseProcess(pid)
+		processes = append(processes, pInfo)
+	}
+
+	now := time.Now()
+	elapsed := now.Sub(c.prevTime).Seconds()
+	if elapsed > 0 {
+		c.birthRate = float64(newPIDsThisInterval) / elapsed
+	}
+
+	c.seenPIDs = currentPIDs
+	c.prevTime = now
+
+	// Sort processes by CPU descending
+	sort.Slice(processes, func(i, j int) bool {
+		return processes[i].CPU > processes[j].CPU
+	})
+
+	return processes, c.birthRate, nil
+}
+
+func (c *ProcessCollector) parseProcess(pid int) model.ProcessInfo {
+	info := model.ProcessInfo{
+		PID:     pid,
+		User:    "root",
+		CPU:     0.0,
+		Mem:     0.0,
+		Command: fmt.Sprintf("[%d]", pid),
+		Runtime: "0:00",
+	}
+
+	pidDir := filepath.Join(c.procDir, strconv.Itoa(pid))
+
+	// Read cmdline
+	if cmdBytes, err := os.ReadFile(filepath.Join(pidDir, "cmdline")); err == nil && len(cmdBytes) > 0 {
+		cmdStr := strings.ReplaceAll(string(cmdBytes), "\x00", " ")
+		cmdStr = strings.TrimSpace(cmdStr)
+		if cmdStr != "" {
+			info.Command = cmdStr
+		}
+	}
+
+	// Read status for VmRSS / Uid
+	if statusFile, err := os.Open(filepath.Join(pidDir, "status")); err == nil {
+		scanner := bufio.NewScanner(statusFile)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "VmRSS:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					rssKB, _ := strconv.ParseFloat(fields[1], 64)
+					info.Mem = rssKB / 1024.0 // MB
+				}
+			} else if strings.HasPrefix(line, "Name:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 && info.Command == fmt.Sprintf("[%d]", pid) {
+					info.Command = fields[1]
+				}
+			}
+		}
+		statusFile.Close()
+	}
+
+	return info
+}
