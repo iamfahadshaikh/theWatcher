@@ -21,43 +21,77 @@ type App struct {
 	showHelp   bool
 	err        error
 	tickPeriod time.Duration
-	panels     []panel.Panel
+	collectors *Collectors
+
+	cpuPanel    *panel.CPUPanel
+	memPanel    *panel.MemoryPanel
+	diskPanel   *panel.DiskPanel
+	netRxPanel  *panel.NetworkPanel
+	netTxPanel  *panel.NetworkPanel
+	procBPanel  *panel.ProcessPanel
+	portsPanel  *panel.PortsPanel
+	connPanel   *panel.ConnectionsPanel
+	procsPanel  *panel.ProcessPanel
+	dockerPanel *panel.DockerPanel
+	loginPanel  *panel.LoginPanel
+	eventsPanel *panel.EventsPanel
+
+	panels []panel.Panel
 }
 
-// New constructs a new App model with all dashboard panels.
+// New constructs a new App model with all dashboard panels and collectors.
 func New() App {
 	host, err := os.Hostname()
 	if err != nil || host == "" {
 		host = "localhost"
 	}
 
+	cpuP := panel.NewCPUPanel()
+	memP := panel.NewMemoryPanel()
+	diskP := panel.NewDiskPanel()
+	netRxP := panel.NewNetworkPanel(false)
+	netTxP := panel.NewNetworkPanel(true)
+	procBP := panel.NewProcessPanel(true)
+	portsP := panel.NewPortsPanel()
+	connP := panel.NewConnectionsPanel()
+	procsP := panel.NewProcessPanel(false)
+	dockerP := panel.NewDockerPanel()
+	loginP := panel.NewLoginPanel()
+	eventsP := panel.NewEventsPanel()
+
 	panels := []panel.Panel{
-		panel.NewCPUPanel(),
-		panel.NewMemoryPanel(),
-		panel.NewDiskPanel(),
-		panel.NewNetworkPanel(false), // RX
-		panel.NewNetworkPanel(true),  // TX
-		panel.NewProcessPanel(true),  // Process Birth
-		panel.NewPortsPanel(),
-		panel.NewConnectionsPanel(),
-		panel.NewProcessPanel(false), // Top Processes
-		panel.NewDockerPanel(),
-		panel.NewLoginPanel(),
-		panel.NewEventsPanel(),
+		cpuP, memP, diskP, netRxP, netTxP, procBP,
+		portsP, connP, procsP, dockerP, loginP, eventsP,
 	}
 
 	return App{
-		hostname:   host,
-		timeframe:  "30s",
-		activeIdx:  0,
-		tickPeriod: 500 * time.Millisecond,
-		panels:     panels,
+		hostname:    host,
+		timeframe:   "30s",
+		activeIdx:   0,
+		tickPeriod:  500 * time.Millisecond,
+		collectors:  NewCollectors(),
+		cpuPanel:    cpuP,
+		memPanel:    memP,
+		diskPanel:   diskP,
+		netRxPanel:  netRxP,
+		netTxPanel:  netTxP,
+		procBPanel:  procBP,
+		portsPanel:  portsP,
+		connPanel:   connP,
+		procsPanel:  procsP,
+		dockerPanel: dockerP,
+		loginPanel:  loginP,
+		eventsPanel: eventsP,
+		panels:      panels,
 	}
 }
 
-// Init initializes the BubbleTea event loop with a periodic tick.
+// Init initializes the BubbleTea event loop with a periodic tick and initial metric fetch.
 func (a App) Init() tea.Cmd {
-	return tickCmd(a.tickPeriod)
+	return tea.Batch(
+		tickCmd(a.tickPeriod),
+		FetchMetricsCmd(a.collectors),
+	)
 }
 
 func tickCmd(d time.Duration) tea.Cmd {
