@@ -1,0 +1,48 @@
+package app
+
+import (
+	"os"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// TickMsg represents a periodic timer event.
+type TickMsg time.Time
+
+// App holds the primary application state.
+type App struct {
+	width      int
+	height     int
+	hostname   string
+	timeframe  string
+	activeIdx  int
+	showHelp   bool
+	err        error
+	tickPeriod time.Duration
+}
+
+// New constructs a new App model.
+func New() App {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = "localhost"
+	}
+	return App{
+		hostname:   host,
+		timeframe:  "30s",
+		activeIdx:  0,
+		tickPeriod: 500 * time.Millisecond,
+	}
+}
+
+// Init initializes the BubbleTea event loop with a periodic tick.
+func (a App) Init() tea.Cmd {
+	return tickCmd(a.tickPeriod)
+}
+
+func tickCmd(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		return TickMsg(t)
+	})
+}
