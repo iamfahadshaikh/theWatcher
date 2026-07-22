@@ -10,11 +10,23 @@ import (
 )
 
 type LoginPanel struct {
-	events []metrics.LoginEvent
+	events       []metrics.LoginEvent
+	scrollOffset int
 }
 
 func NewLoginPanel() *LoginPanel {
 	return &LoginPanel{}
+}
+
+func (p *LoginPanel) ScrollUp() {
+	p.scrollOffset--
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+}
+
+func (p *LoginPanel) ScrollDown() {
+	p.scrollOffset++
 }
 
 func (p *LoginPanel) UpdateLoginEvents(events []metrics.LoginEvent) {
@@ -25,7 +37,7 @@ func (p *LoginPanel) Title() string {
 	return "Login Timeline"
 }
 
-func (p *LoginPanel) Render(width, height int, active bool) string {
+func (p *LoginPanel) Render(width, height int, active bool, expanded bool) string {
 	if len(p.events) == 0 {
 		return RenderContainer(p.Title(), "No active or recent login events recorded.", width, height, active)
 	}
@@ -39,10 +51,18 @@ func (p *LoginPanel) Render(width, height int, active bool) string {
 		maxLines = 1
 	}
 
-	for i, evt := range p.events {
-		if i >= maxLines {
+	if p.scrollOffset > len(p.events)-maxLines {
+		p.scrollOffset = len(p.events) - maxLines
+	}
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+
+	for i := p.scrollOffset; i < len(p.events); i++ {
+		if len(lines)-1 >= maxLines {
 			break
 		}
+		evt := p.events[i]
 		tStr := evt.Time
 		if len(tStr) > 18 {
 			tStr = tStr[:18]

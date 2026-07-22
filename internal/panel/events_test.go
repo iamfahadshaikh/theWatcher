@@ -21,7 +21,7 @@ func TestEventsPanel(t *testing.T) {
 		Message:   "High CPU usage detected > 80%",
 	})
 
-	rendered := p.Render(80, 10, true)
+	rendered := p.Render(80, 10, true, false)
 	if !strings.Contains(rendered, "High CPU usage detected") {
 		t.Errorf("expected warning event message in rendered output: %s", rendered)
 	}

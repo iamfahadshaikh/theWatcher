@@ -9,7 +9,7 @@ import (
 
 type Panel interface {
 	Title() string
-	Render(width, height int, active bool) string
+	Render(width, height int, active bool, expanded bool) string
 }
 
 func RenderContainer(title, content string, width, height int, active bool) string {
@@ -22,8 +22,9 @@ func RenderContainer(title, content string, width, height int, active bool) stri
 		title = fmt.Sprintf("%s %s", title, theme.IconFocus)
 	}
 
+	borderType := theme.FocusedBorder
 	style := lipgloss.NewStyle().
-		Border(theme.FocusedBorder).
+		Border(borderType).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)

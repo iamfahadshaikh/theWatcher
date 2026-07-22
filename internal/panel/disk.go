@@ -44,12 +44,18 @@ func (p *DiskPanel) Title() string {
 	return "Disk I/O"
 }
 
-func (p *DiskPanel) Render(width, height int, active bool) string {
+func (p *DiskPanel) Render(width, height int, active bool, expanded bool) string {
 	graphH := height - 4
+	if expanded {
+		graphH = height - 10
+	}
 	if graphH < 1 {
 		graphH = 1
 	}
 	graphW := width - 4
+	if expanded {
+		graphW = width - 14
+	}
 	if graphW < 1 {
 		graphW = 1
 	}
@@ -70,7 +76,17 @@ func (p *DiskPanel) Render(width, height int, active bool) string {
 		Color:  string(theme.ColorSuccess),
 	})
 
-	statsStr := fmt.Sprintf("R: %s %.1fK/s W: %.1fK/s IOPS: %d Lat: %.1fms", p.trend, p.latest.ReadRateKB, p.latest.WriteRateKB, p.latest.ReadIOPS+p.latest.WriteIOPS, p.latest.LatencyMs)
+	if expanded {
+		brailleStr = graph.AddYAxis(brailleStr, graphH, 0, maxV, "K")
+	}
+
+	var statsStr string
+	if expanded {
+		statsStr = fmt.Sprintf("Read Rate    : %.1f KB/s\nWrite Rate   : %.1f KB/s\nRead IOPS    : %d\nWrite IOPS   : %d\nI/O Latency  : %.2f ms\nTotal Read   : %.1f MB\nTotal Written: %.1f MB",
+			p.latest.ReadRateKB, p.latest.WriteRateKB, p.latest.ReadIOPS, p.latest.WriteIOPS, p.latest.LatencyMs, float64(p.latest.ReadBytes)/(1024*1024), float64(p.latest.WriteBytes)/(1024*1024))
+	} else {
+		statsStr = fmt.Sprintf("R: %s %.1fK/s W: %.1fK/s IOPS: %d Lat: %.1fms", p.trend, p.latest.ReadRateKB, p.latest.WriteRateKB, p.latest.ReadIOPS+p.latest.WriteIOPS, p.latest.LatencyMs)
+	}
 
 	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)

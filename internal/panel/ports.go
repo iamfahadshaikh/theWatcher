@@ -8,11 +8,23 @@ import (
 )
 
 type PortsPanel struct {
-	ports []metrics.PortInfo
+	ports        []metrics.PortInfo
+	scrollOffset int
 }
 
 func NewPortsPanel() *PortsPanel {
 	return &PortsPanel{}
+}
+
+func (p *PortsPanel) ScrollUp() {
+	p.scrollOffset--
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+}
+
+func (p *PortsPanel) ScrollDown() {
+	p.scrollOffset++
 }
 
 func (p *PortsPanel) UpdatePorts(ports []metrics.PortInfo) {
@@ -23,7 +35,7 @@ func (p *PortsPanel) Title() string {
 	return "Listening Ports"
 }
 
-func (p *PortsPanel) Render(width, height int, active bool) string {
+func (p *PortsPanel) Render(width, height int, active bool, expanded bool) string {
 	header := fmt.Sprintf("%-6s %-8s %s", "PROTO", "PORT", "PROCESS")
 	var lines []string
 	lines = append(lines, header)
@@ -33,10 +45,18 @@ func (p *PortsPanel) Render(width, height int, active bool) string {
 		maxLines = 1
 	}
 
-	for i, port := range p.ports {
-		if i >= maxLines {
+	if p.scrollOffset > len(p.ports)-maxLines {
+		p.scrollOffset = len(p.ports) - maxLines
+	}
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+
+	for i := p.scrollOffset; i < len(p.ports); i++ {
+		if len(lines)-1 >= maxLines {
 			break
 		}
+		port := p.ports[i]
 		row := fmt.Sprintf("%-6s %-8s %s", port.Protocol, port.Port, port.Process)
 		lines = append(lines, row)
 	}

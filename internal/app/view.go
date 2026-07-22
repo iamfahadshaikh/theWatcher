@@ -52,7 +52,7 @@ func (a App) View() string {
 
 	// Full-screen Maximized Mode
 	if a.focusManager.Maximized && activeIdx >= 0 && activeIdx < len(a.panels) {
-		maxBody := a.panels[activeIdx].Render(lay.Width, lay.BodyHeight, true)
+		maxBody := a.panels[activeIdx].Render(lay.Width, lay.BodyHeight, true, true)
 		return lipgloss.JoinVertical(lipgloss.Left, headerBar, maxBody, footerBar)
 	}
 
@@ -66,39 +66,39 @@ func (a App) View() string {
 	var dashboardRows []string
 
 	if lay.Rows.ShowRow1 {
-		r1p0 := a.panels[0].Render(w3, lay.Rows.Row1Height, activeIdx == 0)
-		r1p1 := a.panels[1].Render(w3, lay.Rows.Row1Height, activeIdx == 1)
-		r1p2 := a.panels[2].Render(w3Rem, lay.Rows.Row1Height, activeIdx == 2)
+		r1p0 := a.panels[0].Render(w3, lay.Rows.Row1Height, activeIdx == 0, false)
+		r1p1 := a.panels[1].Render(w3, lay.Rows.Row1Height, activeIdx == 1, false)
+		r1p2 := a.panels[2].Render(w3Rem, lay.Rows.Row1Height, activeIdx == 2, false)
 		dashboardRows = append(dashboardRows, lipgloss.JoinHorizontal(lipgloss.Top, r1p0, r1p1, r1p2))
 	}
 
 	if lay.Rows.ShowRow2 {
-		r2p3 := a.panels[3].Render(w3, lay.Rows.Row2Height, activeIdx == 3)
-		r2p4 := a.panels[4].Render(w3, lay.Rows.Row2Height, activeIdx == 4)
-		r2p5 := a.panels[5].Render(w3Rem, lay.Rows.Row2Height, activeIdx == 5)
+		r2p3 := a.panels[3].Render(w3, lay.Rows.Row2Height, activeIdx == 3, false)
+		r2p4 := a.panels[4].Render(w3, lay.Rows.Row2Height, activeIdx == 4, false)
+		r2p5 := a.panels[5].Render(w3Rem, lay.Rows.Row2Height, activeIdx == 5, false)
 		dashboardRows = append(dashboardRows, lipgloss.JoinHorizontal(lipgloss.Top, r2p3, r2p4, r2p5))
 	}
 
 	if lay.Rows.ShowRow3 {
-		r3p6 := a.panels[6].Render(w2, lay.Rows.Row3Height, activeIdx == 6)
-		r3p7 := a.panels[7].Render(w2Rem, lay.Rows.Row3Height, activeIdx == 7)
+		r3p6 := a.panels[6].Render(w2, lay.Rows.Row3Height, activeIdx == 6, false)
+		r3p7 := a.panels[7].Render(w2Rem, lay.Rows.Row3Height, activeIdx == 7, false)
 		dashboardRows = append(dashboardRows, lipgloss.JoinHorizontal(lipgloss.Top, r3p6, r3p7))
 	}
 
 	if lay.Rows.ShowRow4 {
-		dashboardRows = append(dashboardRows, a.panels[8].Render(wFull, lay.Rows.Row4Height, activeIdx == 8))
+		dashboardRows = append(dashboardRows, a.panels[8].Render(wFull, lay.Rows.Row4Height, activeIdx == 8, false))
 	}
 
 	if lay.Rows.ShowRow5 {
-		dashboardRows = append(dashboardRows, a.panels[9].Render(wFull, lay.Rows.Row5Height, activeIdx == 9))
+		dashboardRows = append(dashboardRows, a.panels[9].Render(wFull, lay.Rows.Row5Height, activeIdx == 9, false))
 	}
 
 	if lay.Rows.ShowRow6 {
-		dashboardRows = append(dashboardRows, a.panels[10].Render(wFull, lay.Rows.Row6Height, activeIdx == 10))
+		dashboardRows = append(dashboardRows, a.panels[10].Render(wFull, lay.Rows.Row6Height, activeIdx == 10, false))
 	}
 
 	if lay.Rows.ShowRow7 {
-		dashboardRows = append(dashboardRows, a.panels[11].Render(wFull, lay.Rows.Row7Height, activeIdx == 11))
+		dashboardRows = append(dashboardRows, a.panels[11].Render(wFull, lay.Rows.Row7Height, activeIdx == 11, false))
 	}
 
 	dashboard := lipgloss.JoinVertical(lipgloss.Left, dashboardRows...)

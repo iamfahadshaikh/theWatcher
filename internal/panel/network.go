@@ -57,12 +57,18 @@ func (p *NetworkPanel) Title() string {
 	return "Incoming Traffic"
 }
 
-func (p *NetworkPanel) Render(width, height int, active bool) string {
+func (p *NetworkPanel) Render(width, height int, active bool, expanded bool) string {
 	graphH := height - 4
+	if expanded {
+		graphH = height - 9
+	}
 	if graphH < 1 {
 		graphH = 1
 	}
 	graphW := width - 4
+	if expanded {
+		graphW = width - 14
+	}
 	if graphW < 1 {
 		graphW = 1
 	}
@@ -88,11 +94,25 @@ func (p *NetworkPanel) Render(width, height int, active bool) string {
 		Color:  color,
 	})
 
+	if expanded {
+		brailleStr = graph.AddYAxis(brailleStr, graphH, 0, maxV, "K")
+	}
+
 	var statsStr string
-	if p.isTX {
-		statsStr = fmt.Sprintf("Rate: %s %.1fKB/s Pkts: %d Err: %d Drop: %d", p.trend, p.latest.TxRateKB, p.latest.TxPackets, p.latest.TxErrors, p.latest.TxDrop)
+	if expanded {
+		if p.isTX {
+			statsStr = fmt.Sprintf("Current Rate : %.1f KB/s %s\nPeak Rate    : %.1f KB/s\nPackets      : %d\nErrors       : %d\nDropped      : %d\nInterface    : eth0",
+				p.latest.TxRateKB, p.trend, maxV, p.latest.TxPackets, p.latest.TxErrors, p.latest.TxDrop)
+		} else {
+			statsStr = fmt.Sprintf("Current Rate : %.1f KB/s %s\nPeak Rate    : %.1f KB/s\nPackets      : %d\nErrors       : %d\nDropped      : %d\nInterface    : eth0",
+				p.latest.RxRateKB, p.trend, maxV, p.latest.RxPackets, p.latest.RxErrors, p.latest.RxDrop)
+		}
 	} else {
-		statsStr = fmt.Sprintf("Rate: %s %.1fKB/s Pkts: %d Err: %d Drop: %d", p.trend, p.latest.RxRateKB, p.latest.RxPackets, p.latest.RxErrors, p.latest.RxDrop)
+		if p.isTX {
+			statsStr = fmt.Sprintf("Rate: %s %.1fKB/s Pkts: %d Err: %d Drop: %d", p.trend, p.latest.TxRateKB, p.latest.TxPackets, p.latest.TxErrors, p.latest.TxDrop)
+		} else {
+			statsStr = fmt.Sprintf("Rate: %s %.1fKB/s Pkts: %d Err: %d Drop: %d", p.trend, p.latest.RxRateKB, p.latest.RxPackets, p.latest.RxErrors, p.latest.RxDrop)
+		}
 	}
 
 	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)

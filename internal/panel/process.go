@@ -11,15 +11,16 @@ import (
 )
 
 type ProcessPanel struct {
-	isBirth   bool
-	history   *history.RingBuffer[float64]
-	procs     []metrics.ProcessInfo
-	birthRate float64
-	renderer  graph.Renderer
-	running   int
-	sleeping  int
-	zombie    int
-	stopped   int
+	isBirth      bool
+	history      *history.RingBuffer[float64]
+	procs        []metrics.ProcessInfo
+	birthRate    float64
+	renderer     graph.Renderer
+	running      int
+	sleeping     int
+	zombie       int
+	stopped      int
+	scrollOffset int
 }
 
 func NewProcessPanel(isBirth bool) *ProcessPanel {
@@ -28,6 +29,17 @@ func NewProcessPanel(isBirth bool) *ProcessPanel {
 		history:  history.NewRingBuffer[float64](300),
 		renderer: graph.NewBrailleRenderer(),
 	}
+}
+
+func (p *ProcessPanel) ScrollUp() {
+	p.scrollOffset--
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+}
+
+func (p *ProcessPanel) ScrollDown() {
+	p.scrollOffset++
 }
 
 func (p *ProcessPanel) UpdateProcesses(procs []metrics.ProcessInfo, birthRate float64) {
@@ -64,13 +76,19 @@ func (p *ProcessPanel) Title() string {
 	return "Top Processes"
 }
 
-func (p *ProcessPanel) Render(width, height int, active bool) string {
+func (p *ProcessPanel) Render(width, height int, active bool, expanded bool) string {
 	if p.isBirth {
 		graphH := height - 4
+		if expanded {
+			graphH = height - 9
+		}
 		if graphH < 1 {
 			graphH = 1
 		}
 		graphW := width - 4
+		if expanded {
+			graphW = width - 12
+		}
 		if graphW < 1 {
 			graphW = 1
 		}
@@ -91,7 +109,17 @@ func (p *ProcessPanel) Render(width, height int, active bool) string {
 			Color:  string(theme.ColorGold),
 		})
 
-		statsStr := fmt.Sprintf("PIDs/s: %.1f | Run: %d | Sleep: %d | Zombie: %d | Stop: %d", p.birthRate, p.running, p.sleeping, p.zombie, p.stopped)
+		if expanded {
+			brailleStr = graph.AddYAxis(brailleStr, graphH, 0, maxV, "")
+		}
+
+		var statsStr string
+		if expanded {
+			statsStr = fmt.Sprintf("Fork Rate    : %.1f PIDs/sec\nRunning      : %d\nSleeping     : %d\nZombie       : %d\nStopped      : %d\nTotal Procs  : %d",
+				p.birthRate, p.running, p.sleeping, p.zombie, p.stopped, len(p.procs))
+		} else {
+			statsStr = fmt.Sprintf("PIDs/s: %.1f | Run: %d | Sleep: %d | Zombie: %d | Stop: %d", p.birthRate, p.running, p.sleeping, p.zombie, p.stopped)
+		}
 		return RenderContainer(p.Title(), fmt.Sprintf("%s\n%s", brailleStr, statsStr), width, height, active)
 	}
 
@@ -105,10 +133,18 @@ func (p *ProcessPanel) Render(width, height int, active bool) string {
 		maxLines = 1
 	}
 
-	for i, proc := range p.procs {
-		if i >= maxLines {
+	if p.scrollOffset > len(p.procs)-maxLines {
+		p.scrollOffset = len(p.procs) - maxLines
+	}
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+
+	for i := p.scrollOffset; i < len(p.procs); i++ {
+		if len(lines)-1 >= maxLines {
 			break
 		}
+		proc := p.procs[i]
 		cmd := proc.Command
 		if len(cmd) > width-60 && width > 60 {
 			cmd = cmd[:width-63] + "..."

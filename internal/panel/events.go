@@ -12,7 +12,8 @@ import (
 )
 
 type EventsPanel struct {
-	history *history.RingBuffer[metrics.SystemEvent]
+	history      *history.RingBuffer[metrics.SystemEvent]
+	scrollOffset int
 }
 
 func NewEventsPanel() *EventsPanel {
@@ -28,6 +29,17 @@ func NewEventsPanel() *EventsPanel {
 	}
 }
 
+func (p *EventsPanel) ScrollUp() {
+	p.scrollOffset--
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+}
+
+func (p *EventsPanel) ScrollDown() {
+	p.scrollOffset++
+}
+
 func (p *EventsPanel) AddEvent(evt metrics.SystemEvent) {
 	p.history.Push(evt)
 }
@@ -36,19 +48,40 @@ func (p *EventsPanel) Title() string {
 	return "Events & Alerts"
 }
 
-func (p *EventsPanel) Render(width, height int, active bool) string {
+func (p *EventsPanel) Render(width, height int, active bool, expanded bool) string {
 	events := p.history.Slice()
 	maxLines := height - 4
 	if maxLines < 1 {
 		maxLines = 1
 	}
 
-	if len(events) > maxLines {
-		events = events[len(events)-maxLines:]
+	if p.scrollOffset > len(events)-maxLines {
+		p.scrollOffset = len(events) - maxLines
+	}
+	if p.scrollOffset < 0 {
+		p.scrollOffset = 0
+	}
+
+	// In expanded view we show the scrolled slice, otherwise the latest maxLines items.
+	var visibleEvents []metrics.SystemEvent
+	if expanded {
+		endIdx := p.scrollOffset + maxLines
+		if endIdx > len(events) {
+			endIdx = len(events)
+		}
+		if p.scrollOffset < len(events) {
+			visibleEvents = events[p.scrollOffset:endIdx]
+		}
+	} else {
+		if len(events) > maxLines {
+			visibleEvents = events[len(events)-maxLines:]
+		} else {
+			visibleEvents = events
+		}
 	}
 
 	var lines []string
-	for _, evt := range events {
+	for _, evt := range visibleEvents {
 		tStr := evt.Timestamp.Format("15:04:05")
 		lvlStr := fmt.Sprintf("[%s]", evt.Level)
 

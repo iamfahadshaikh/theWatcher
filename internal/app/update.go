@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"theWatcher/internal/layout"
 	"theWatcher/internal/metrics"
 )
 
@@ -33,6 +34,36 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.focusManager.ResetMaximize()
 		case "h", "?":
 			a.showHelp = !a.showHelp
+		case "up":
+			if a.focusManager.Maximized {
+				switch a.focusManager.ActiveID {
+				case layout.PanelProcesses:
+					a.procsPanel.ScrollUp()
+				case layout.PanelDocker:
+					a.dockerPanel.ScrollUp()
+				case layout.PanelLogins:
+					a.loginPanel.ScrollUp()
+				case layout.PanelEvents:
+					a.eventsPanel.ScrollUp()
+				case layout.PanelPorts:
+					a.portsPanel.ScrollUp()
+				}
+			}
+		case "down":
+			if a.focusManager.Maximized {
+				switch a.focusManager.ActiveID {
+				case layout.PanelProcesses:
+					a.procsPanel.ScrollDown()
+				case layout.PanelDocker:
+					a.dockerPanel.ScrollDown()
+				case layout.PanelLogins:
+					a.loginPanel.ScrollDown()
+				case layout.PanelEvents:
+					a.eventsPanel.ScrollDown()
+				case layout.PanelPorts:
+					a.portsPanel.ScrollDown()
+				}
+			}
 		}
 
 	case tea.WindowSizeMsg:
