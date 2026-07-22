@@ -80,7 +80,7 @@ func (p *ProcessPanel) Render(width, height int, active bool, expanded bool) str
 	if p.isBirth {
 		graphH := height - 4
 		if expanded {
-			graphH = height - 9
+			graphH = height - 10
 		}
 		if graphH < 1 {
 			graphH = 1

@@ -25,45 +25,52 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "5":
 			a.timeframe = "1h"
 		case "tab":
-			lay := layout.ComputeLayout(a.width, a.height)
-			a.focusManager.NextFocus(lay.Rows)
+			if a.focusManager.Maximized {
+				lay := layout.ComputeLayout(a.width, a.height)
+				a.focusManager.NextFocus(lay.Rows)
+			}
 		case "shift+tab":
-			lay := layout.ComputeLayout(a.width, a.height)
-			a.focusManager.PrevFocus(lay.Rows)
+			if a.focusManager.Maximized {
+				lay := layout.ComputeLayout(a.width, a.height)
+				a.focusManager.PrevFocus(lay.Rows)
+			}
 		case " ":
 			a.focusManager.ToggleMaximize()
 		case "esc":
 			a.focusManager.ResetMaximize()
 		case "h", "?":
 			a.showHelp = !a.showHelp
-		case "up":
-			if a.focusManager.Maximized {
-				switch a.focusManager.ActiveID {
-				case layout.PanelProcesses:
-					a.procsPanel.ScrollUp()
-				case layout.PanelDocker:
-					a.dockerPanel.ScrollUp()
-				case layout.PanelLogins:
-					a.loginPanel.ScrollUp()
-				case layout.PanelEvents:
-					a.eventsPanel.ScrollUp()
-				case layout.PanelPorts:
-					a.portsPanel.ScrollUp()
-				}
-			}
-		case "down":
-			if a.focusManager.Maximized {
-				switch a.focusManager.ActiveID {
-				case layout.PanelProcesses:
-					a.procsPanel.ScrollDown()
-				case layout.PanelDocker:
-					a.dockerPanel.ScrollDown()
-				case layout.PanelLogins:
-					a.loginPanel.ScrollDown()
-				case layout.PanelEvents:
-					a.eventsPanel.ScrollDown()
-				case layout.PanelPorts:
-					a.portsPanel.ScrollDown()
+		case "left", "right", "up", "down":
+			if !a.focusManager.Maximized {
+				lay := layout.ComputeLayout(a.width, a.height)
+				a.focusManager.Navigate(msg.String(), lay.Rows)
+			} else {
+				if msg.String() == "up" {
+					switch a.focusManager.ActiveID {
+					case layout.PanelProcesses:
+						a.procsPanel.ScrollUp()
+					case layout.PanelDocker:
+						a.dockerPanel.ScrollUp()
+					case layout.PanelLogins:
+						a.loginPanel.ScrollUp()
+					case layout.PanelEvents:
+						a.eventsPanel.ScrollUp()
+					case layout.PanelPorts:
+						a.portsPanel.ScrollUp()
+					}
+				} else if msg.String() == "down" {
+					switch a.focusManager.ActiveID {
+					case layout.PanelProcesses:
+						a.procsPanel.ScrollDown()
+					case layout.PanelDocker:
+						a.dockerPanel.ScrollDown()
+					case layout.PanelLogins:
+						a.loginPanel.ScrollDown()
+					case layout.PanelEvents:
+						a.eventsPanel.ScrollDown()
+					case layout.PanelPorts:
+						a.portsPanel.ScrollDown()
+					}
 				}
 			}
 		}

@@ -33,13 +33,14 @@ func (a App) View() string {
 		Processes:  a.procCount,
 		Containers: a.dockerCount,
 		Timeframe:  a.timeframe,
-	}, lay.Width)
+	}, a.focusManager.Maximized, lay.Width)
 
 	if a.showHelp {
 		helpText := fmt.Sprintf("=== theWatcher Help ===\n\n" +
 			"q / Ctrl+C : Quit application\n" +
-			"Tab        : Move focus to next panel\n" +
-			"Shift+Tab  : Move focus to previous panel\n" +
+			"Arrow Keys : Navigate focus in the dashboard grid\n" +
+			"Tab        : In Maximized view, focus next panel\n" +
+			"Shift+Tab  : In Maximized view, focus previous panel\n" +
 			"Space      : Toggle full-screen zoom on focused panel\n" +
 			"Esc        : Restore standard multi-panel grid view\n" +
 			"1 - 5      : Change timeframe (30s, 1m, 5m, 15m, 1h)\n" +

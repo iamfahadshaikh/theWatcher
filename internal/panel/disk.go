@@ -47,7 +47,7 @@ func (p *DiskPanel) Title() string {
 func (p *DiskPanel) Render(width, height int, active bool, expanded bool) string {
 	graphH := height - 4
 	if expanded {
-		graphH = height - 10
+		graphH = height - 11
 	}
 	if graphH < 1 {
 		graphH = 1

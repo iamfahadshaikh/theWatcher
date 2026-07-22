@@ -16,7 +16,7 @@ type StatusSummary struct {
 	Timeframe  string
 }
 
-func RenderFooter(s StatusSummary, width int) string {
+func RenderFooter(s StatusSummary, maximized bool, width int) string {
 	if width <= 0 {
 		return ""
 	}
@@ -24,7 +24,12 @@ func RenderFooter(s StatusSummary, width int) string {
 	statusBar := fmt.Sprintf("STATUS | CPU: %.1f%% | RAM: %.1f%% | RX: %.1fKB/s | TX: %.1fKB/s | PROC: %d | DOCKER: %d | TF: %s",
 		s.CPU, s.RAM, s.RxRateKB, s.TxRateKB, s.Processes, s.Containers, s.Timeframe)
 
-	keyHints := "q: Quit | Tab: Focus | Space: Maximize | Esc: Restore | 1-5: Timeframe | h: Help"
+	var keyHints string
+	if maximized {
+		keyHints = "q: Quit | Tab: Next | S-Tab: Prev | Esc/Space: Restore"
+	} else {
+		keyHints = "q: Quit | ←↑→↓: Move | Space: Maximize | 1-5: TF | h: Help"
+	}
 	fullStr := fmt.Sprintf("%s  --  %s", statusBar, keyHints)
 
 	return theme.FooterStyle.Width(width).Render(fullStr)
