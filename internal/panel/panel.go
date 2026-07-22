@@ -3,6 +3,7 @@ package panel
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/theme"
@@ -72,25 +73,39 @@ func AnsiSafeTruncate(s string, limit int) string {
 	visibleLen := 0
 	inEscape := false
 
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c == '\x1b' {
-			inEscape = true
-			result.WriteByte(c)
+	i := 0
+	for i < len(s) {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError {
+			result.WriteByte(s[i])
+			i++
 			continue
 		}
+
+		if r == '\x1b' {
+			inEscape = true
+			result.WriteString(s[i : i+size])
+			i += size
+			continue
+		}
+
 		if inEscape {
-			result.WriteByte(c)
-			if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+			result.WriteString(s[i : i+size])
+			if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
 				inEscape = false
 			}
+			i += size
 			continue
 		}
+
 		if visibleLen >= limit {
+			i += size
 			continue
 		}
-		result.WriteByte(c)
+
+		result.WriteString(s[i : i+size])
 		visibleLen++
+		i += size
 	}
 	return result.String()
 }
