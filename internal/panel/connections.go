@@ -35,10 +35,10 @@ func (p *ConnectionsPanel) Render(width, height int, active bool) string {
 	barStyle := lipgloss.NewStyle().Foreground(theme.ColorFoam)
 	lblStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.ColorText)
 
-	b1 := graph.RenderBar("ESTAB ", float64(p.summary.Established), maxVal, width-6, barStyle, lblStyle)
-	b2 := graph.RenderBar("LISTEN", float64(p.summary.Listen), maxVal, width-6, barStyle, lblStyle)
-	b3 := graph.RenderBar("TIME_W", float64(p.summary.TimeWait), maxVal, width-6, barStyle, lblStyle)
-	b4 := graph.RenderBar("CLOS_W", float64(p.summary.CloseWait), maxVal, width-6, barStyle, lblStyle)
+	b1 := graph.RenderBar(fmt.Sprintf("ESTAB  %-3d", p.summary.Established), float64(p.summary.Established), maxVal, width-6, barStyle, lblStyle)
+	b2 := graph.RenderBar(fmt.Sprintf("LISTEN %-3d", p.summary.Listen), float64(p.summary.Listen), maxVal, width-6, barStyle, lblStyle)
+	b3 := graph.RenderBar(fmt.Sprintf("TIME_W %-3d", p.summary.TimeWait), float64(p.summary.TimeWait), maxVal, width-6, barStyle, lblStyle)
+	b4 := graph.RenderBar(fmt.Sprintf("CLOS_W %-3d", p.summary.CloseWait), float64(p.summary.CloseWait), maxVal, width-6, barStyle, lblStyle)
 
 	content := fmt.Sprintf("%s\n%s\n%s\n%s", b1, b2, b3, b4)
 	return RenderContainer(p.Title(), content, width, height, active)

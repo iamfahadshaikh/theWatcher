@@ -16,6 +16,10 @@ import (
 type ProcessSnapshot struct {
 	Processes []metrics.ProcessInfo
 	BirthRate float64
+	Running   int
+	Sleeping  int
+	Zombie    int
+	Stopped   int
 }
 
 type ProcessCollector struct {
@@ -55,6 +59,7 @@ func (c *ProcessCollector) Collect() error {
 	var processes []metrics.ProcessInfo
 	currentPIDs := make(map[int]bool)
 	newPIDsThisInterval := 0
+	var runCount, sleepCount, zombieCount, stopCount int
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -73,6 +78,19 @@ func (c *ProcessCollector) Collect() error {
 
 		pInfo := c.parseProcess(pid)
 		processes = append(processes, pInfo)
+
+		switch pInfo.State {
+		case "R":
+			runCount++
+		case "S", "D":
+			sleepCount++
+		case "Z":
+			zombieCount++
+		case "T", "t":
+			stopCount++
+		default:
+			sleepCount++
+		}
 	}
 
 	now := time.Now()
@@ -91,6 +109,10 @@ func (c *ProcessCollector) Collect() error {
 	c.snapshot = ProcessSnapshot{
 		Processes: processes,
 		BirthRate: c.birthRate,
+		Running:   runCount,
+		Sleeping:  sleepCount,
+		Zombie:    zombieCount,
+		Stopped:   stopCount,
 	}
 	return nil
 }

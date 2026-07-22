@@ -82,6 +82,81 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Message:   fmt.Sprintf("High Memory usage: %.1f%%", msg.Memory.UsedPct),
 			})
 		}
+
+		// 1. New Listening Port Detection
+		currPorts := make(map[string]string)
+		for _, p := range msg.Ports {
+			currPorts[p.Port] = p.Process
+			if len(a.prevPorts) > 0 {
+				if _, ok := a.prevPorts[p.Port]; !ok {
+					a.eventsPanel.AddEvent(metrics.SystemEvent{
+						Timestamp: msg.CollectedAt,
+						Level:     metrics.LevelWarning,
+						Component: "Ports",
+						Message:   fmt.Sprintf("New listening port: %s (%s)", p.Port, p.Process),
+					})
+				}
+			}
+		}
+		a.prevPorts = currPorts
+
+		// 2. Docker Container Event Detection
+		currContainers := make(map[string]string)
+		for _, d := range msg.Docker {
+			currContainers[d.ID] = d.Name
+			if len(a.prevContainers) > 0 {
+				if _, ok := a.prevContainers[d.ID]; !ok {
+					a.eventsPanel.AddEvent(metrics.SystemEvent{
+						Timestamp: msg.CollectedAt,
+						Level:     metrics.LevelInfo,
+						Component: "Docker",
+						Message:   fmt.Sprintf("Docker container started: %s", d.Name),
+					})
+				}
+			}
+		}
+		for id, name := range a.prevContainers {
+			found := false
+			for _, d := range msg.Docker {
+				if d.ID == id {
+					found = true
+					break
+				}
+			}
+			if !found {
+				a.eventsPanel.AddEvent(metrics.SystemEvent{
+					Timestamp: msg.CollectedAt,
+					Level:     metrics.LevelWarning,
+					Component: "Docker",
+					Message:   fmt.Sprintf("Docker container stopped: %s", name),
+				})
+			}
+		}
+		a.prevContainers = currContainers
+
+		// 3. PID Burst Detection
+		if msg.BirthRate > 15.0 {
+			a.eventsPanel.AddEvent(metrics.SystemEvent{
+				Timestamp: msg.CollectedAt,
+				Level:     metrics.LevelWarning,
+				Component: "Process",
+				Message:   fmt.Sprintf("PID burst detected: %.1f spawns/sec", msg.BirthRate),
+			})
+		}
+
+		// 4. Memory Reclaim Detection
+		if a.prevMemPct > 0 {
+			diff := a.prevMemPct - msg.Memory.UsedPct
+			if diff > 10.0 {
+				a.eventsPanel.AddEvent(metrics.SystemEvent{
+					Timestamp: msg.CollectedAt,
+					Level:     metrics.LevelInfo,
+					Component: "Memory",
+					Message:   fmt.Sprintf("Memory reclaimed: %.1f%% decrease", diff),
+				})
+			}
+		}
+		a.prevMemPct = msg.Memory.UsedPct
 	}
 
 	return a, nil

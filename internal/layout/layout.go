@@ -1,27 +1,100 @@
 package layout
 
-// LayoutDimensions stores calculated UI component bounds.
+// LayoutDimensions stores calculated UI component bounds and row configurations.
 type LayoutDimensions struct {
 	Width        int
 	Height       int
 	HeaderHeight int
 	FooterHeight int
 	BodyHeight   int
+	Rows         RowConfig
+}
+
+type RowConfig struct {
+	ShowRow1   bool
+	ShowRow2   bool
+	ShowRow3   bool
+	ShowRow4   bool
+	ShowRow5   bool
+	ShowRow6   bool
+	ShowRow7   bool
+	Row1Height int
+	Row2Height int
+	Row3Height int
+	Row4Height int
+	Row5Height int
+	Row6Height int
+	Row7Height int
 }
 
 // ComputeLayout calculates heights and widths for dashboard regions.
 func ComputeLayout(width, height int) LayoutDimensions {
-	headerH := 2 // Two-row multi-line header
+	headerH := 2
 	footerH := 1
 	bodyH := height - headerH - footerH
 	if bodyH < 1 {
 		bodyH = 1
 	}
+
+	rows := RowConfig{}
+
+	if bodyH >= 45 {
+		rows.ShowRow1 = true
+		rows.ShowRow2 = true
+		rows.ShowRow3 = true
+		rows.ShowRow4 = true
+		rows.ShowRow5 = true
+		rows.ShowRow6 = true
+		rows.ShowRow7 = true
+		rows.Row1Height = 8
+		rows.Row2Height = 8
+		rows.Row3Height = 6
+		rows.Row4Height = 8
+		rows.Row5Height = 6
+		rows.Row6Height = 5
+		rows.Row7Height = bodyH - (8 + 8 + 6 + 8 + 6 + 5)
+		if rows.Row7Height < 4 {
+			rows.Row7Height = 4
+		}
+	} else if bodyH >= 35 {
+		rows.ShowRow1 = true
+		rows.ShowRow2 = true
+		rows.ShowRow3 = true
+		rows.ShowRow4 = true
+		rows.ShowRow5 = true
+		rows.ShowRow6 = false
+		rows.ShowRow7 = false
+		rows.Row1Height = 7
+		rows.Row2Height = 7
+		rows.Row3Height = 5
+		rows.Row4Height = 8
+		rows.Row5Height = bodyH - (7 + 7 + 5 + 8)
+		if rows.Row5Height < 4 {
+			rows.Row5Height = 4
+		}
+	} else {
+		rows.ShowRow1 = true
+		rows.ShowRow2 = true
+		rows.ShowRow3 = true
+		rows.ShowRow4 = true
+		rows.ShowRow5 = false
+		rows.ShowRow6 = false
+		rows.ShowRow7 = false
+		rows.Row1Height = 6
+		rows.Row2Height = 6
+		rows.Row3Height = 5
+		rows.Row4Height = bodyH - (6 + 6 + 5)
+		if rows.Row4Height < 4 {
+			rows.Row4Height = 4
+		}
+	}
+
 	return LayoutDimensions{
 		Width:        width,
 		Height:       height,
 		HeaderHeight: headerH,
 		FooterHeight: footerH,
 		BodyHeight:   bodyH,
+		Rows:         rows,
 	}
 }

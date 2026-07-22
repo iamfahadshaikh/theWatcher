@@ -13,16 +13,27 @@ type CPUPanel struct {
 	history  *history.RingBuffer[float64]
 	latest   metrics.CPUMetric
 	renderer graph.Renderer
+	trend    string
+	prevPct  float64
 }
 
 func NewCPUPanel() *CPUPanel {
 	return &CPUPanel{
 		history:  history.NewRingBuffer[float64](300),
 		renderer: graph.NewBrailleRenderer(),
+		trend:    "~",
 	}
 }
 
 func (p *CPUPanel) UpdateMetric(m metrics.CPUMetric) {
+	if m.UsagePct > p.prevPct {
+		p.trend = "▲"
+	} else if m.UsagePct < p.prevPct {
+		p.trend = "▼"
+	} else {
+		p.trend = "~"
+	}
+	p.prevPct = m.UsagePct
 	p.latest = m
 	p.history.Push(m.UsagePct)
 }
@@ -49,7 +60,7 @@ func (p *CPUPanel) Render(width, height int, active bool) string {
 		Color:  string(theme.ColorLove),
 	})
 
-	statsStr := fmt.Sprintf("Cur: %.1f%%  Avg: %.1f%%  Peak: %.1f%%", p.latest.UsagePct, p.latest.AveragePct, p.latest.PeakPct)
+	statsStr := fmt.Sprintf("Cur: %s %.1f%%  Avg: %.1f%%  Peak: %.1f%%", p.trend, p.latest.UsagePct, p.latest.AveragePct, p.latest.PeakPct)
 
 	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)

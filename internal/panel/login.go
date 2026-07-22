@@ -30,7 +30,7 @@ func (p *LoginPanel) Render(width, height int, active bool) string {
 		return RenderContainer(p.Title(), "No active or recent login events recorded.", width, height, active)
 	}
 
-	header := fmt.Sprintf("%-20s %-12s %-10s %s", "TIME", "USER", "TYPE", "FROM")
+	header := fmt.Sprintf("%-20s %-12s %-12s %s", "TIME", "USER", "TYPE", "FROM")
 	var lines []string
 	lines = append(lines, header)
 
@@ -48,19 +48,30 @@ func (p *LoginPanel) Render(width, height int, active bool) string {
 			tStr = tStr[:18]
 		}
 
-		userStyle := lipgloss.NewStyle().Foreground(theme.ColorFoam)
+		userStyle := lipgloss.NewStyle().Foreground(theme.ColorText)
 		if evt.User == "root" {
 			userStyle = lipgloss.NewStyle().Foreground(theme.ColorLove).Bold(true)
-		} else if strings.Contains(evt.Type, "sudo") {
-			userStyle = lipgloss.NewStyle().Foreground(theme.ColorGold).Bold(true)
-		} else if strings.Contains(evt.Type, "docker") {
-			userStyle = lipgloss.NewStyle().Foreground(theme.ColorIris)
-		} else if evt.Type == "SESSION" {
+		} else {
 			userStyle = lipgloss.NewStyle().Foreground(theme.ColorSuccess)
 		}
 
+		typeStyle := lipgloss.NewStyle().Foreground(theme.ColorFoam)
+		switch evt.Type {
+		case "root":
+			typeStyle = lipgloss.NewStyle().Foreground(theme.ColorLove).Bold(true)
+		case "SSH Login":
+			typeStyle = lipgloss.NewStyle().Foreground(theme.ColorIris).Bold(true)
+		case "tty":
+			typeStyle = lipgloss.NewStyle().Foreground(theme.ColorGold)
+		case "system":
+			typeStyle = lipgloss.NewStyle().Foreground(theme.ColorPine)
+		case "local":
+			typeStyle = lipgloss.NewStyle().Foreground(theme.ColorFoam)
+		}
+
 		uStr := userStyle.Render(evt.User)
-		row := fmt.Sprintf("%-20s %-12s %-10s %s", tStr, uStr, evt.Type, evt.From)
+		tType := typeStyle.Render(evt.Type)
+		row := fmt.Sprintf("%-20s %-12s %-12s %s", tStr, uStr, tType, evt.From)
 		lines = append(lines, row)
 	}
 

@@ -13,18 +13,31 @@ type DiskPanel struct {
 	history  *history.RingBuffer[float64]
 	latest   metrics.DiskMetric
 	renderer graph.Renderer
+	trend    string
+	prevRate float64
 }
 
 func NewDiskPanel() *DiskPanel {
 	return &DiskPanel{
 		history:  history.NewRingBuffer[float64](300),
 		renderer: graph.NewBrailleRenderer(),
+		trend:    "~",
 	}
 }
 
 func (p *DiskPanel) UpdateMetric(m metrics.DiskMetric) {
+	rate := m.ReadRateKB + m.WriteRateKB
+	if rate > p.prevRate {
+		p.trend = "▲"
+	} else if rate < p.prevRate {
+		p.trend = "▼"
+	} else {
+		p.trend = "~"
+	}
+	p.prevRate = rate
+
 	p.latest = m
-	p.history.Push(m.ReadRateKB + m.WriteRateKB)
+	p.history.Push(rate)
 }
 
 func (p *DiskPanel) Title() string {
@@ -57,7 +70,7 @@ func (p *DiskPanel) Render(width, height int, active bool) string {
 		Color:  string(theme.ColorSuccess),
 	})
 
-	statsStr := fmt.Sprintf("R: %.1fK/s W: %.1fK/s IOPS: %d Lat: %.1fms", p.latest.ReadRateKB, p.latest.WriteRateKB, p.latest.ReadIOPS+p.latest.WriteIOPS, p.latest.LatencyMs)
+	statsStr := fmt.Sprintf("R: %s %.1fK/s W: %.1fK/s IOPS: %d Lat: %.1fms", p.trend, p.latest.ReadRateKB, p.latest.WriteRateKB, p.latest.ReadIOPS+p.latest.WriteIOPS, p.latest.LatencyMs)
 
 	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)

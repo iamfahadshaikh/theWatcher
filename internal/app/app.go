@@ -42,6 +42,10 @@ type App struct {
 
 	procCount   int
 	dockerCount int
+
+	prevPorts      map[string]string
+	prevContainers map[string]string
+	prevMemPct     float64
 }
 
 func New() App {
@@ -64,23 +68,25 @@ func New() App {
 	}
 
 	return App{
-		timeframe:    "30s",
-		tickPeriod:   config.RefreshRate,
-		focusManager: layout.NewFocusManager(),
-		collectors:   NewCollectors(),
-		cpuPanel:     cpuP,
-		memPanel:     memP,
-		diskPanel:    diskP,
-		netRxPanel:   netRxP,
-		netTxPanel:   netTxP,
-		procBPanel:   procBP,
-		portsPanel:   portsP,
-		connPanel:    connP,
-		procsPanel:   procsP,
-		dockerPanel:  dockerP,
-		loginPanel:   loginP,
-		eventsPanel:  eventsP,
-		panels:       panels,
+		timeframe:      "30s",
+		tickPeriod:     config.RefreshRate,
+		focusManager:   layout.NewFocusManager(),
+		collectors:     NewCollectors(),
+		cpuPanel:       cpuP,
+		memPanel:       memP,
+		diskPanel:      diskP,
+		netRxPanel:     netRxP,
+		netTxPanel:     netTxP,
+		procBPanel:     procBP,
+		portsPanel:     portsP,
+		connPanel:      connP,
+		procsPanel:     procsP,
+		dockerPanel:    dockerP,
+		loginPanel:     loginP,
+		eventsPanel:    eventsP,
+		panels:         panels,
+		prevPorts:      make(map[string]string),
+		prevContainers: make(map[string]string),
 	}
 }
 

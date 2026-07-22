@@ -53,11 +53,18 @@ func (c *LoginCollector) Collect() error {
 				u := fields[0]
 				tty := fields[1]
 				tStr := strings.Join(fields[2:], " ")
+				from := tty
+				if len(fields) >= 5 {
+					lastField := fields[len(fields)-1]
+					if strings.HasPrefix(lastField, "(") && strings.HasSuffix(lastField, ")") {
+						from = strings.Trim(lastField, "()")
+					}
+				}
 				events = append(events, metrics.LoginEvent{
 					Time: tStr,
 					User: u,
-					Type: "SESSION",
-					From: tty,
+					Type: parseLoginType(u, tty, from),
+					From: from,
 				})
 			}
 		}
@@ -78,7 +85,7 @@ func (c *LoginCollector) Collect() error {
 				events = append(events, metrics.LoginEvent{
 					Time: tStr,
 					User: u,
-					Type: "HISTORIC",
+					Type: parseLoginType(u, tty, from),
 					From: fmtFrom(tty, from),
 				})
 			}
@@ -99,8 +106,24 @@ func (c *LoginCollector) Snapshot() any {
 }
 
 func fmtFrom(tty, from string) string {
-	if from != "" && from != ":" {
+	if from != "" && from != ":" && from != "0" {
 		return from
 	}
 	return tty
+}
+
+func parseLoginType(user, tty, from string) string {
+	if user == "root" {
+		return "root"
+	}
+	if user == "reboot" {
+		return "system"
+	}
+	if strings.HasPrefix(tty, "tty") {
+		return "tty"
+	}
+	if from != "" && from != ":" && from != "0" && !strings.HasPrefix(from, ":") {
+		return "SSH Login"
+	}
+	return "local"
 }

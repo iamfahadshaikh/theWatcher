@@ -13,16 +13,27 @@ type MemoryPanel struct {
 	history  *history.RingBuffer[float64]
 	latest   metrics.MemoryMetric
 	renderer graph.Renderer
+	trend    string
+	prevPct  float64
 }
 
 func NewMemoryPanel() *MemoryPanel {
 	return &MemoryPanel{
 		history:  history.NewRingBuffer[float64](300),
 		renderer: graph.NewBrailleRenderer(),
+		trend:    "~",
 	}
 }
 
 func (p *MemoryPanel) UpdateMetric(m metrics.MemoryMetric) {
+	if m.UsedPct > p.prevPct {
+		p.trend = "▲"
+	} else if m.UsedPct < p.prevPct {
+		p.trend = "▼"
+	} else {
+		p.trend = "~"
+	}
+	p.prevPct = m.UsedPct
 	p.latest = m
 	p.history.Push(m.UsedPct)
 }
@@ -49,7 +60,7 @@ func (p *MemoryPanel) Render(width, height int, active bool) string {
 		Color:  string(theme.ColorFoam),
 	})
 
-	statsStr := fmt.Sprintf("Used: %.0fM Free: %.0fM Buf: %.0fM Cache: %.0fM", p.latest.UsedMB, p.latest.FreeMB, p.latest.BufferMB, p.latest.CachedMB)
+	statsStr := fmt.Sprintf("Used: %s %.0fM Free: %.0fM Buf: %.0fM Cache: %.0fM", p.trend, p.latest.UsedMB, p.latest.FreeMB, p.latest.BufferMB, p.latest.CachedMB)
 
 	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)
 	return RenderContainer(p.Title(), content, width, height, active)

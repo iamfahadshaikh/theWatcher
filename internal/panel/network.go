@@ -14,6 +14,8 @@ type NetworkPanel struct {
 	history  *history.RingBuffer[float64]
 	latest   metrics.NetworkMetric
 	renderer graph.Renderer
+	trend    string
+	prevRate float64
 }
 
 func NewNetworkPanel(isTX bool) *NetworkPanel {
@@ -21,10 +23,25 @@ func NewNetworkPanel(isTX bool) *NetworkPanel {
 		isTX:     isTX,
 		history:  history.NewRingBuffer[float64](300),
 		renderer: graph.NewBrailleRenderer(),
+		trend:    "~",
 	}
 }
 
 func (p *NetworkPanel) UpdateMetric(m metrics.NetworkMetric) {
+	rate := m.RxRateKB
+	if p.isTX {
+		rate = m.TxRateKB
+	}
+
+	if rate > p.prevRate {
+		p.trend = "▲"
+	} else if rate < p.prevRate {
+		p.trend = "▼"
+	} else {
+		p.trend = "~"
+	}
+	p.prevRate = rate
+
 	p.latest = m
 	if p.isTX {
 		p.history.Push(m.TxRateKB)
@@ -73,9 +90,9 @@ func (p *NetworkPanel) Render(width, height int, active bool) string {
 
 	var statsStr string
 	if p.isTX {
-		statsStr = fmt.Sprintf("Rate: %.1fKB/s Pkts: %d Err: %d Drop: %d", p.latest.TxRateKB, p.latest.TxPackets, p.latest.TxErrors, p.latest.TxDrop)
+		statsStr = fmt.Sprintf("Rate: %s %.1fKB/s Pkts: %d Err: %d Drop: %d", p.trend, p.latest.TxRateKB, p.latest.TxPackets, p.latest.TxErrors, p.latest.TxDrop)
 	} else {
-		statsStr = fmt.Sprintf("Rate: %.1fKB/s Pkts: %d Err: %d Drop: %d", p.latest.RxRateKB, p.latest.RxPackets, p.latest.RxErrors, p.latest.RxDrop)
+		statsStr = fmt.Sprintf("Rate: %s %.1fKB/s Pkts: %d Err: %d Drop: %d", p.trend, p.latest.RxRateKB, p.latest.RxPackets, p.latest.RxErrors, p.latest.RxDrop)
 	}
 
 	content := fmt.Sprintf("%s\n%s", brailleStr, statsStr)

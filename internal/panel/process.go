@@ -16,6 +16,10 @@ type ProcessPanel struct {
 	procs     []metrics.ProcessInfo
 	birthRate float64
 	renderer  graph.Renderer
+	running   int
+	sleeping  int
+	zombie    int
+	stopped   int
 }
 
 func NewProcessPanel(isBirth bool) *ProcessPanel {
@@ -31,6 +35,25 @@ func (p *ProcessPanel) UpdateProcesses(procs []metrics.ProcessInfo, birthRate fl
 	p.birthRate = birthRate
 	if p.isBirth {
 		p.history.Push(birthRate)
+	}
+
+	p.running = 0
+	p.sleeping = 0
+	p.zombie = 0
+	p.stopped = 0
+	for _, proc := range procs {
+		switch proc.State {
+		case "R":
+			p.running++
+		case "S", "D":
+			p.sleeping++
+		case "Z":
+			p.zombie++
+		case "T", "t":
+			p.stopped++
+		default:
+			p.sleeping++
+		}
 	}
 }
 
@@ -68,7 +91,7 @@ func (p *ProcessPanel) Render(width, height int, active bool) string {
 			Color:  string(theme.ColorGold),
 		})
 
-		statsStr := fmt.Sprintf("New PIDs/sec: %.1f", p.birthRate)
+		statsStr := fmt.Sprintf("PIDs/s: %.1f | Run: %d | Sleep: %d | Zombie: %d | Stop: %d", p.birthRate, p.running, p.sleeping, p.zombie, p.stopped)
 		return RenderContainer(p.Title(), fmt.Sprintf("%s\n%s", brailleStr, statsStr), width, height, active)
 	}
 
