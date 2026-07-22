@@ -53,9 +53,6 @@ func ComputeLayout(width, height int) LayoutDimensions {
 		rows.Row5Height = 6
 		rows.Row6Height = 5
 		rows.Row7Height = bodyH - (8 + 8 + 6 + 8 + 6 + 5)
-		if rows.Row7Height < 4 {
-			rows.Row7Height = 4
-		}
 	} else if bodyH >= 35 {
 		rows.ShowRow1 = true
 		rows.ShowRow2 = true
@@ -69,10 +66,7 @@ func ComputeLayout(width, height int) LayoutDimensions {
 		rows.Row3Height = 5
 		rows.Row4Height = 8
 		rows.Row5Height = bodyH - (7 + 7 + 5 + 8)
-		if rows.Row5Height < 4 {
-			rows.Row5Height = 4
-		}
-	} else {
+	} else if bodyH >= 22 {
 		rows.ShowRow1 = true
 		rows.ShowRow2 = true
 		rows.ShowRow3 = true
@@ -80,12 +74,31 @@ func ComputeLayout(width, height int) LayoutDimensions {
 		rows.ShowRow5 = false
 		rows.ShowRow6 = false
 		rows.ShowRow7 = false
-		rows.Row1Height = 6
-		rows.Row2Height = 6
-		rows.Row3Height = 5
-		rows.Row4Height = bodyH - (6 + 6 + 5)
-		if rows.Row4Height < 4 {
-			rows.Row4Height = 4
+		rows.Row1Height = 5
+		rows.Row2Height = 5
+		rows.Row3Height = 4
+		rows.Row4Height = bodyH - (5 + 5 + 4)
+	} else {
+		rows.ShowRow1 = true
+		rows.ShowRow2 = false
+		rows.ShowRow3 = false
+		rows.ShowRow4 = true
+		rows.ShowRow5 = false
+		rows.ShowRow6 = false
+		rows.ShowRow7 = false
+		rows.Row1Height = bodyH / 2
+		if rows.Row1Height < 4 {
+			rows.Row1Height = 4
+		}
+		if rows.Row1Height > bodyH-4 {
+			rows.Row1Height = bodyH - 4
+		}
+		if rows.Row1Height < 1 {
+			rows.Row1Height = 1
+		}
+		rows.Row4Height = bodyH - rows.Row1Height
+		if rows.Row4Height < 1 {
+			rows.Row4Height = 1
 		}
 	}
 

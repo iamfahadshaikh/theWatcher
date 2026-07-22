@@ -13,16 +13,25 @@ type Panel interface {
 }
 
 func RenderContainer(title, content string, width, height int, active bool) string {
-	borderColor := theme.ColorPine
-	titleStyle := theme.PanelTitleStyle
+	var borderColor lipgloss.Color
+	var titleStyle lipgloss.Style
+	var borderType lipgloss.Border
 
 	if active {
-		borderColor = theme.ColorRose
-		titleStyle = theme.PanelTitleFocusedStyle
-		title = fmt.Sprintf("%s %s", title, theme.IconFocus)
+		borderColor = theme.ColorGold
+		borderType = theme.MaximizedBorder
+		titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(theme.ColorBase).
+			Background(theme.ColorGold)
+		title = fmt.Sprintf(" %s %s ", title, theme.IconFocus)
+	} else {
+		borderColor = theme.ColorSubtle
+		borderType = theme.DefaultBorder
+		titleStyle = theme.PanelTitleStyle
+		title = fmt.Sprintf(" %s ", title)
 	}
 
-	borderType := theme.FocusedBorder
 	style := lipgloss.NewStyle().
 		Border(borderType).
 		BorderForeground(borderColor).

@@ -46,7 +46,11 @@ func (p *ConnectionsPanel) Render(width, height int, active bool, expanded bool)
 		b6 := graph.RenderBar(fmt.Sprintf("SYN_R  %-3d", p.summary.SynRecv), float64(p.summary.SynRecv), maxVal, width-6, barStyle, lblStyle)
 		content = fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s\n\nTotal Active Sockets: %d", b1, b2, b3, b4, b5, b6, total)
 	} else {
-		content = fmt.Sprintf("%s\n%s\n%s\n%s", b1, b2, b3, b4)
+		if height < 6 {
+			content = fmt.Sprintf("ESTAB:%d  LISTEN:%d  TIME_W:%d  CLOS_W:%d", p.summary.Established, p.summary.Listen, p.summary.TimeWait, p.summary.CloseWait)
+		} else {
+			content = fmt.Sprintf("%s\n%s\n%s\n%s", b1, b2, b3, b4)
+		}
 	}
 
 	return RenderContainer(p.Title(), content, width, height, active)

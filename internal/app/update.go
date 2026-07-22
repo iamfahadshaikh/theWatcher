@@ -25,9 +25,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "5":
 			a.timeframe = "1h"
 		case "tab":
-			a.focusManager.NextFocus()
+			lay := layout.ComputeLayout(a.width, a.height)
+			a.focusManager.NextFocus(lay.Rows)
 		case "shift+tab":
-			a.focusManager.PrevFocus()
+			lay := layout.ComputeLayout(a.width, a.height)
+			a.focusManager.PrevFocus(lay.Rows)
 		case " ":
 			a.focusManager.ToggleMaximize()
 		case "esc":
