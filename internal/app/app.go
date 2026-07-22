@@ -39,6 +39,9 @@ type App struct {
 	eventsPanel *panel.EventsPanel
 
 	panels []panel.Panel
+
+	procCount   int
+	dockerCount int
 }
 
 func New() App {

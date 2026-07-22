@@ -63,6 +63,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dockerPanel.UpdateDockerStats(msg.Docker, msg.DockerErr)
 		a.loginPanel.UpdateLoginEvents(msg.Logins)
 
+		a.procCount = len(msg.Processes)
+		a.dockerCount = len(msg.Docker)
+
 		if msg.CPU.UsagePct > 80.0 {
 			a.eventsPanel.AddEvent(metrics.SystemEvent{
 				Timestamp: msg.CollectedAt,

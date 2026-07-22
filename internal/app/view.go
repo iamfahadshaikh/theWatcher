@@ -26,11 +26,13 @@ func (a App) View() string {
 	headerBar := widgets.RenderHeader(a.latestSystem, currTime, a.timeframe, lay.Width)
 
 	footerBar := widgets.RenderFooter(widgets.StatusSummary{
-		CPU:       a.latestCPU.UsagePct,
-		RAM:       a.latestMem.UsedPct,
-		RxRateKB:  a.latestNet.RxRateKB,
-		TxRateKB:  a.latestNet.TxRateKB,
-		Timeframe: a.timeframe,
+		CPU:        a.latestCPU.UsagePct,
+		RAM:        a.latestMem.UsedPct,
+		RxRateKB:   a.latestNet.RxRateKB,
+		TxRateKB:   a.latestNet.TxRateKB,
+		Processes:  a.procCount,
+		Containers: a.dockerCount,
+		Timeframe:  a.timeframe,
 	}, lay.Width)
 
 	if a.showHelp {

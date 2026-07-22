@@ -52,11 +52,19 @@ func (p *ProcessPanel) Render(width, height int, active bool) string {
 			graphW = 1
 		}
 
+		slice := p.history.Slice()
+		maxV := 5.0
+		for _, v := range slice {
+			if v > maxV {
+				maxV = v
+			}
+		}
+
 		brailleStr := graph.RenderHistory(p.history, p.renderer, graph.GraphData{
 			Width:  graphW,
 			Height: graphH,
 			Min:    0,
-			Max:    50,
+			Max:    maxV,
 			Color:  string(theme.ColorGold),
 		})
 
