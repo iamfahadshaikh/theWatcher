@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"theWatcher/internal/layout"
@@ -11,9 +12,65 @@ import (
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if a.searchMode {
+			switch msg.String() {
+			case "enter":
+				a.searchMode = false
+				a.procsPanel.SearchFilter = a.searchBuffer
+			case "esc":
+				a.searchMode = false
+				a.searchBuffer = ""
+				a.procsPanel.SearchFilter = ""
+			case "backspace":
+				if len(a.searchBuffer) > 0 {
+					a.searchBuffer = a.searchBuffer[:len(a.searchBuffer)-1]
+				}
+			default:
+				if len(msg.String()) == 1 {
+					a.searchBuffer += msg.String()
+				}
+			}
+			return a, nil
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return a, tea.Quit
+		case "/":
+			a.searchMode = true
+			a.searchBuffer = ""
+		case "R":
+			a.scheduler.ResetSession()
+			a.statusMessage = "Session statistics reset"
+			a.statusMsgTime = time.Now()
+		case "e":
+			path, err := ExportSnapshot(a.latestCPU, a.latestMem, a.latestDisk, a.latestNet, a.latestConn, a.latestDocker)
+			if err != nil {
+				a.statusMessage = fmt.Sprintf("Export failed: %v", err)
+			} else {
+				a.statusMessage = fmt.Sprintf("Snapshot exported to %s", path)
+			}
+			a.statusMsgTime = time.Now()
+		case "c":
+			if a.focusManager.ActiveID == layout.PanelProcesses {
+				a.procsPanel.ToggleSort("cpu")
+			}
+		case "m":
+			if a.focusManager.ActiveID == layout.PanelProcesses {
+				a.procsPanel.ToggleSort("mem")
+			}
+		case "p":
+			if a.focusManager.ActiveID == layout.PanelProcesses {
+				a.procsPanel.ToggleSort("pid")
+			}
+		case "t":
+			if a.focusManager.ActiveID == layout.PanelProcesses {
+				a.procsPanel.ToggleSort("runtime")
+			}
+		case "n":
+			if a.focusManager.ActiveID == layout.PanelProcesses {
+				a.procsPanel.ToggleSort("name")
+			}
 		case "1":
 			a.timeframe = "30s"
 		case "2":
@@ -82,7 +139,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case TickMsg:
 		return a, tea.Batch(
 			tickCmd(a.tickPeriod),
-			FetchMetricsCmd(a.collectors),
+			FetchMetricsCmd(a.store),
 		)
 
 	case MetricsMsg:
@@ -90,6 +147,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.latestCPU = msg.CPU
 		a.latestMem = msg.Memory
 		a.latestNet = msg.Network
+		a.latestDisk = msg.Disk
+		a.latestConn = msg.Conn
+		a.latestDocker = msg.Docker
+		a.latestDockerErr = msg.DockerErr
+
+		a.cpuPanel.Timeframe = a.timeframe
+		a.memPanel.Timeframe = a.timeframe
+		a.diskPanel.Timeframe = a.timeframe
+		a.netRxPanel.Timeframe = a.timeframe
+		a.netTxPanel.Timeframe = a.timeframe
+		a.procBPanel.Timeframe = a.timeframe
 
 		a.cpuPanel.UpdateMetric(msg.CPU)
 		a.memPanel.UpdateMetric(msg.Memory)
@@ -102,6 +170,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.procsPanel.UpdateProcesses(msg.Processes, msg.BirthRate)
 		a.dockerPanel.UpdateDockerStats(msg.Docker, msg.DockerErr)
 		a.loginPanel.UpdateLoginEvents(msg.Logins)
+
+		// Run alert updates
+		a.alertEngine.Update(msg.CPU, msg.Memory, msg.Disk, msg.Network, msg.Docker, msg.CPU.TempC, msg.CPU.PackagePowerW)
 
 		a.procCount = len(msg.Processes)
 		a.dockerCount = len(msg.Docker)

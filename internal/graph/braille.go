@@ -19,22 +19,23 @@ func (b *BrailleRenderer) Render(data GraphData) string {
 		return ""
 	}
 
+	color := data.Color
+	if color == "" {
+		color = string(theme.ColorLove)
+	}
+
 	if len(data.Samples) == 0 {
 		emptyRow := strings.Repeat(" ", data.Width)
 		rows := make([]string, data.Height)
 		for i := range rows {
 			rows[i] = emptyRow
 		}
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(data.Color)).Render(strings.Join(rows, "\n"))
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(strings.Join(rows, "\n"))
 	}
 
-	dotsWidth := data.Width * 2
-	dotsHeight := data.Height * 4
-
-	// Sample or truncate to dotsWidth
 	samples := data.Samples
-	if len(samples) > dotsWidth {
-		samples = samples[len(samples)-dotsWidth:]
+	if len(samples) > data.Width {
+		samples = samples[len(samples)-data.Width:]
 	}
 
 	minV := data.Min
@@ -51,33 +52,56 @@ func (b *BrailleRenderer) Render(data GraphData) string {
 		maxV = minV + 1.0
 	}
 
-	// Matrix of Braille codepoints offset from 0x2800
 	grid := make([][]rune, data.Height)
+	colorGrid := make([][]string, data.Height)
 	for r := 0; r < data.Height; r++ {
 		grid[r] = make([]rune, data.Width)
+		colorGrid[r] = make([]string, data.Width)
 		for c := 0; c < data.Width; c++ {
-			grid[r][c] = 0x2800
+			grid[r][c] = ' '
+			colorGrid[r][c] = ""
 		}
 	}
 
-	startDotX := dotsWidth - len(samples)
-	if startDotX < 0 {
-		startDotX = 0
+	valRow := func(val float64) int {
+		norm := (val - minV) / (maxV - minV)
+		if norm < 0 {
+			norm = 0
+		}
+		if norm > 1 {
+			norm = 1
+		}
+		y := (1.0 - norm) * float64(data.Height-1)
+		return int(math.Round(y))
 	}
 
-	dotBitMap := [4][2]rune{
-		{0x01, 0x08},
-		{0x02, 0x10},
-		{0x04, 0x20},
-		{0x40, 0x80},
+	// 1. Draw reference lines if enabled (background)
+	if data.ShowRefLines {
+		drawRefLine := func(val float64, char rune, col string) {
+			if col == "" {
+				col = string(theme.ColorSubtle)
+			}
+			rIdx := valRow(val)
+			if rIdx >= 0 && rIdx < data.Height {
+				for c := 0; c < data.Width; c++ {
+					grid[rIdx][c] = char
+					colorGrid[rIdx][c] = col
+				}
+			}
+		}
+		// Draw Min first, then Max, then Avg so Avg takes priority if rows overlap
+		drawRefLine(data.MinVal, '╌', data.MinColor)
+		drawRefLine(data.MaxVal, '╌', data.MaxColor)
+		drawRefLine(data.AvgVal, '╌', data.AvgColor)
 	}
 
+	startCol := data.Width - len(samples)
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	rows := make([]float64, len(samples))
 	for i, v := range samples {
-		dotX := startDotX + i
-		if dotX < 0 || dotX >= dotsWidth {
-			continue
-		}
-
 		norm := (v - minV) / (maxV - minV)
 		if norm < 0 {
 			norm = 0
@@ -85,34 +109,96 @@ func (b *BrailleRenderer) Render(data GraphData) string {
 		if norm > 1 {
 			norm = 1
 		}
+		rows[i] = (1.0 - norm) * float64(data.Height-1)
+	}
 
-		dotY := int(math.Round((1.0 - norm) * float64(dotsHeight-1)))
-		if dotY < 0 {
-			dotY = 0
+	// 2. Draw trend line (foreground - overwrites background)
+	for i := 0; i < len(samples); i++ {
+		c := startCol + i
+		if c >= data.Width {
+			break
 		}
-		if dotY >= dotsHeight {
-			dotY = dotsHeight - 1
+
+		yCurr := rows[i]
+		rCurr := int(math.Round(yCurr))
+
+		if i == len(samples)-1 {
+			if rCurr >= 0 && rCurr < data.Height {
+				grid[rCurr][c] = '─'
+				colorGrid[rCurr][c] = color
+			}
+			continue
 		}
 
-		cellX := dotX / 2
-		cellY := dotY / 4
-		localX := dotX % 2
-		localY := dotY % 4
+		yNext := rows[i+1]
+		rNext := int(math.Round(yNext))
 
-		if cellY >= 0 && cellY < data.Height && cellX >= 0 && cellX < data.Width {
-			grid[cellY][cellX] |= dotBitMap[localY][localX]
+		if rCurr == rNext {
+			if rCurr >= 0 && rCurr < data.Height {
+				grid[rCurr][c] = '─'
+				colorGrid[rCurr][c] = color
+			}
+		} else if rCurr < rNext {
+			// Going down
+			if rCurr >= 0 && rCurr < data.Height {
+				grid[rCurr][c] = '╮'
+				colorGrid[rCurr][c] = color
+			}
+			for r := rCurr + 1; r < rNext; r++ {
+				if r >= 0 && r < data.Height {
+					grid[r][c] = '│'
+					colorGrid[r][c] = color
+				}
+			}
+			if rNext >= 0 && rNext < data.Height {
+				grid[rNext][c] = '╰'
+				colorGrid[rNext][c] = color
+			}
+		} else {
+			// Going up
+			if rCurr >= 0 && rCurr < data.Height {
+				grid[rCurr][c] = '╯'
+				colorGrid[rCurr][c] = color
+			}
+			for r := rNext + 1; r < rCurr; r++ {
+				if r >= 0 && r < data.Height {
+					grid[r][c] = '│'
+					colorGrid[r][c] = color
+				}
+			}
+			if rNext >= 0 && rNext < data.Height {
+				grid[rNext][c] = '╭'
+				colorGrid[rNext][c] = color
+			}
 		}
 	}
 
-	rows := make([]string, data.Height)
+	// 3. Render grid grouping adjacent cells with the same color run
+	var sb strings.Builder
 	for r := 0; r < data.Height; r++ {
-		rows[r] = string(grid[r])
+		if r > 0 {
+			sb.WriteRune('\n')
+		}
+		runColor := ""
+		var runBuilder strings.Builder
+		for c := 0; c < data.Width; c++ {
+			cellColor := colorGrid[r][c]
+			if cellColor == "" {
+				cellColor = color
+			}
+			if cellColor != runColor {
+				if runBuilder.Len() > 0 {
+					sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(runColor)).Render(runBuilder.String()))
+					runBuilder.Reset()
+				}
+				runColor = cellColor
+			}
+			runBuilder.WriteRune(grid[r][c])
+		}
+		if runBuilder.Len() > 0 {
+			sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(runColor)).Render(runBuilder.String()))
+		}
 	}
 
-	color := data.Color
-	if color == "" {
-		color = string(theme.ColorLove)
-	}
-
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(strings.Join(rows, "\n"))
+	return sb.String()
 }

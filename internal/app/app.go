@@ -8,6 +8,7 @@ import (
 	"theWatcher/internal/layout"
 	"theWatcher/internal/metrics"
 	"theWatcher/internal/panel"
+	"theWatcher/internal/theme"
 )
 
 type TickMsg time.Time
@@ -20,10 +21,16 @@ type App struct {
 	tickPeriod   time.Duration
 	focusManager *layout.FocusManager
 	collectors   *Collectors
-	latestSystem metrics.SystemInfo
-	latestCPU    metrics.CPUMetric
-	latestMem    metrics.MemoryMetric
-	latestNet    metrics.NetworkMetric
+	store        *MetricsStore
+	scheduler    *Scheduler
+	latestSystem  metrics.SystemInfo
+	latestCPU     metrics.CPUMetric
+	latestMem     metrics.MemoryMetric
+	latestNet     metrics.NetworkMetric
+	latestDisk    metrics.DiskMetric
+	latestConn    metrics.ConnSummary
+	latestDocker  []metrics.DockerStat
+	latestDockerErr error
 
 	cpuPanel    *panel.CPUPanel
 	memPanel    *panel.MemoryPanel
@@ -46,6 +53,11 @@ type App struct {
 	prevPorts      map[string]string
 	prevContainers map[string]string
 	prevMemPct     float64
+	alertEngine    *AlertEngine
+	searchMode     bool
+	searchBuffer   string
+	statusMessage  string
+	statusMsgTime  time.Time
 }
 
 func New() App {
@@ -67,11 +79,21 @@ func New() App {
 		portsP, connP, procsP, dockerP, loginP, eventsP,
 	}
 
+	// Load user config and set theme
+	cfg := config.LoadConfig()
+	theme.SetTheme(cfg.Theme)
+
+	cols := NewCollectors()
+	store := NewMetricsStore()
+	sched := NewScheduler(cols, store)
+
 	return App{
 		timeframe:      "30s",
-		tickPeriod:     config.RefreshRate,
+		tickPeriod:     config.GetRefreshPeriod(),
 		focusManager:   layout.NewFocusManager(),
-		collectors:     NewCollectors(),
+		collectors:     cols,
+		store:          store,
+		scheduler:      sched,
 		cpuPanel:       cpuP,
 		memPanel:       memP,
 		diskPanel:      diskP,
@@ -87,14 +109,22 @@ func New() App {
 		panels:         panels,
 		prevPorts:      make(map[string]string),
 		prevContainers: make(map[string]string),
+		alertEngine:    NewAlertEngine(),
 	}
 }
 
 func (a App) Init() tea.Cmd {
+	a.scheduler.Start()
 	return tea.Batch(
 		tickCmd(a.tickPeriod),
-		FetchMetricsCmd(a.collectors),
+		FetchMetricsCmd(a.store),
 	)
+}
+
+func (a App) Stop() {
+	if a.scheduler != nil {
+		a.scheduler.Stop()
+	}
 }
 
 func tickCmd(d time.Duration) tea.Cmd {

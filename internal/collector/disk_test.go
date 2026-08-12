@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,7 +21,7 @@ func TestDiskCollector(t *testing.T) {
 	}
 
 	col := NewDiskCollectorWithPath(diskFile)
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestDiskCollector(t *testing.T) {
 `
 	_ = os.WriteFile(diskFile, []byte(content2), 0644)
 
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +19,7 @@ func TestCPUCollector(t *testing.T) {
 	}
 
 	col := NewCPUCollectorWithPath(statFile)
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error on first collect: %v", err)
 	}
@@ -33,7 +34,7 @@ func TestCPUCollector(t *testing.T) {
 		t.Fatalf("failed writing stat2: %v", err)
 	}
 
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error on second collect: %v", err)
 	}

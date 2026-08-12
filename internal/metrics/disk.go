@@ -2,7 +2,21 @@ package metrics
 
 import "time"
 
-// DiskMetric holds disk throughput and IOPS stats.
+type FilesystemStat struct {
+	Device       string
+	MountPoint   string
+	FSType       string
+	TotalBytes   uint64
+	UsedBytes    uint64
+	AvailBytes   uint64
+	UsedPct      float64
+	ReadOnly     bool
+	MountOptions string
+	InodesTotal  uint64
+	InodesUsed   uint64
+	InodesPct    float64
+}
+
 type DiskMetric struct {
 	Timestamp   time.Time
 	ReadBytes   uint64
@@ -12,4 +26,8 @@ type DiskMetric struct {
 	ReadRateKB  float64
 	WriteRateKB float64
 	LatencyMs   float64
+	QueueDepth  int
+	DiskUtilPct float64
+	DiskTempC   float64
+	Filesystems []FilesystemStat
 }

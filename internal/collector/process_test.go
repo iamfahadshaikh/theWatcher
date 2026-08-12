@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,7 +17,7 @@ func TestProcessCollector(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(pid100, "stat"), []byte("100 (nginx) S 1 100 100 0 -1 4194304 100 0 0 0 10 20 0 0 20 0 1 0 1000\n"), 0644)
 
 	col := NewProcessCollectorWithPath(tmpDir)
-	err := col.Collect()
+	err := col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

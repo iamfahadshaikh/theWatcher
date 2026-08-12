@@ -2,14 +2,18 @@ package collector
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"theWatcher/internal/metrics"
 )
 
 type PortsCollector struct {
+	mu       sync.Mutex
 	tcpPath  string
 	udpPath  string
 	snapshot []metrics.PortInfo
@@ -33,7 +37,19 @@ func (c *PortsCollector) Name() string {
 	return "Ports"
 }
 
-func (c *PortsCollector) Collect() error {
+func (c *PortsCollector) ResetSession() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+}
+
+func (c *PortsCollector) Interval() time.Duration {
+	return 5 * time.Second
+}
+
+func (c *PortsCollector) Collect(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	var ports []metrics.PortInfo
 
 	tcpPorts := parseProcNetSockets(c.tcpPath, "TCP", "0A")
@@ -47,6 +63,8 @@ func (c *PortsCollector) Collect() error {
 }
 
 func (c *PortsCollector) Snapshot() any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.snapshot
 }
 

@@ -2,15 +2,19 @@ package collector
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 	"strings"
+	"sync"
+	"time"
 
 	"theWatcher/internal/metrics"
 )
 
-type CommandRunner func(name string, args ...string) ([]byte, error)
+type CommandRunner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 type LoginCollector struct {
+	mu       sync.Mutex
 	runner   CommandRunner
 	snapshot []metrics.LoginEvent
 }
@@ -27,8 +31,8 @@ func NewLoginCollectorWithRunner(runner CommandRunner) *LoginCollector {
 	}
 }
 
-func defaultCommandRunner(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
+func defaultCommandRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
@@ -42,10 +46,22 @@ func (c *LoginCollector) Name() string {
 	return "Login"
 }
 
-func (c *LoginCollector) Collect() error {
+func (c *LoginCollector) ResetSession() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+}
+
+func (c *LoginCollector) Interval() time.Duration {
+	return 10 * time.Second
+}
+
+func (c *LoginCollector) Collect(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	var events []metrics.LoginEvent
 
-	if out, err := c.runner("who"); err == nil && len(out) > 0 {
+	if out, err := c.runner(ctx, "who"); err == nil && len(out) > 0 {
 		lines := strings.Split(string(out), "\n")
 		for _, l := range lines {
 			fields := strings.Fields(l)
@@ -61,40 +77,39 @@ func (c *LoginCollector) Collect() error {
 					}
 				}
 				events = append(events, metrics.LoginEvent{
-					Time: tStr,
 					User: u,
-					Type: parseLoginType(u, tty, from),
+					Type: "SSH",
+					Time: tStr,
 					From: from,
 				})
 			}
 		}
 	}
 
-	if out, err := c.runner("last", "-n", "5"); err == nil && len(out) > 0 {
+	if out, err := c.runner(ctx, "last", "-n", "10"); err == nil && len(out) > 0 {
 		lines := strings.Split(string(out), "\n")
 		for _, l := range lines {
-			if strings.HasPrefix(l, "wtmp begins") || strings.TrimSpace(l) == "" {
+			if strings.TrimSpace(l) == "" || strings.HasPrefix(l, "wtmp") || strings.HasPrefix(l, "reboot") {
 				continue
 			}
 			fields := strings.Fields(l)
 			if len(fields) >= 4 {
 				u := fields[0]
-				tty := fields[1]
 				from := fields[2]
-				tStr := strings.Join(fields[3:], " ")
+				var tStr string
+				if len(fields) >= 7 {
+					tStr = strings.Join(fields[3:7], " ")
+				} else {
+					tStr = strings.Join(fields[3:], " ")
+				}
 				events = append(events, metrics.LoginEvent{
-					Time: tStr,
 					User: u,
-					Type: parseLoginType(u, tty, from),
-					From: fmtFrom(tty, from),
+					Type: "LAST LOGIN",
+					Time: tStr,
+					From: from,
 				})
 			}
 		}
-	}
-
-	// Reverse to show newest events first
-	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
-		events[i], events[j] = events[j], events[i]
 	}
 
 	c.snapshot = events
@@ -102,28 +117,7 @@ func (c *LoginCollector) Collect() error {
 }
 
 func (c *LoginCollector) Snapshot() any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.snapshot
-}
-
-func fmtFrom(tty, from string) string {
-	if from != "" && from != ":" && from != "0" {
-		return from
-	}
-	return tty
-}
-
-func parseLoginType(user, tty, from string) string {
-	if user == "root" {
-		return "root"
-	}
-	if user == "reboot" {
-		return "system"
-	}
-	if strings.HasPrefix(tty, "tty") {
-		return "tty"
-	}
-	if from != "" && from != ":" && from != "0" && !strings.HasPrefix(from, ":") {
-		return "SSH Login"
-	}
-	return "local"
 }

@@ -2,7 +2,13 @@ package history
 
 import (
 	"sync"
+	"time"
 )
+
+type Sample struct {
+	Time  time.Time
+	Value float64
+}
 
 // RingBuffer is a thread-safe generic fixed-capacity circular buffer.
 type RingBuffer[T any] struct {

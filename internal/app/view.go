@@ -36,11 +36,38 @@ func (a App) View() string {
 		Timeframe:  a.timeframe,
 	}, a.focusManager.Maximized, lay.Width)
 
+	var statusLine string
+	if a.searchMode {
+		statusLine = lipgloss.NewStyle().
+			Foreground(theme.ColorGold).
+			Background(theme.ColorSurface).
+			Bold(true).
+			Render(fmt.Sprintf(" SEARCH: %s▋", a.searchBuffer))
+	} else if a.statusMessage != "" && time.Since(a.statusMsgTime) < 5*time.Second {
+		statusLine = lipgloss.NewStyle().
+			Foreground(theme.ColorFoam).
+			Bold(true).
+			Render(fmt.Sprintf(" %s", a.statusMessage))
+	} else {
+		alerts := a.alertEngine.RenderFooterAlerts()
+		if alerts != "" {
+			statusLine = lipgloss.NewStyle().
+				Foreground(theme.ColorLove).
+				Bold(true).
+				Render(alerts)
+		}
+	}
+
 	var finalView string
 
 	if a.showHelp {
 		helpText := fmt.Sprintf("=== theWatcher Help ===\n\n" +
 			"q / Ctrl+C : Quit application\n" +
+			"/          : Open search filter across processes\n" +
+			"c / m / p  : Sort processes by CPU, MEM, or PID\n" +
+			"t / n      : Sort processes by Runtime or Name\n" +
+			"R          : Reset session metrics (min, max, averages)\n" +
+			"e          : Export JSON metrics snapshot\n" +
 			"Arrow Keys : Navigate focus in the dashboard grid\n" +
 			"Tab        : In Maximized view, focus next panel\n" +
 			"Shift+Tab  : In Maximized view, focus previous panel\n" +
@@ -49,14 +76,14 @@ func (a App) View() string {
 			"1 - 5      : Change timeframe (30s, 1m, 5m, 15m, 1h)\n" +
 			"h / ?      : Toggle this help overlay")
 		bodyView := helpBoxStyle.Width(lay.Width - 4).Height(lay.BodyHeight - 2).Render(helpText)
-		finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, bodyView, footerBar)
+		finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, bodyView, statusLine, footerBar)
 	} else {
 		activeIdx := int(a.focusManager.ActiveID)
 
 		// Full-screen Maximized Mode
 		if a.focusManager.Maximized && activeIdx >= 0 && activeIdx < len(a.panels) {
 			maxBody := a.panels[activeIdx].Render(lay.Width, lay.BodyHeight, true, true)
-			finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, maxBody, footerBar)
+			finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, maxBody, statusLine, footerBar)
 		} else {
 			// Multi-panel Grid Mode
 			w3 := lay.Width / 3
@@ -104,7 +131,7 @@ func (a App) View() string {
 			}
 
 			dashboard := lipgloss.JoinVertical(lipgloss.Left, dashboardRows...)
-			finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, dashboard, footerBar)
+			finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, dashboard, statusLine, footerBar)
 		}
 	}
 

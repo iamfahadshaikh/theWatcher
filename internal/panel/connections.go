@@ -2,6 +2,7 @@ package panel
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"theWatcher/internal/graph"
@@ -26,7 +27,7 @@ func (p *ConnectionsPanel) Title() string {
 }
 
 func (p *ConnectionsPanel) Render(width, height int, active bool, expanded bool) string {
-	total := p.summary.Established + p.summary.Listen + p.summary.TimeWait + p.summary.CloseWait + p.summary.SynSent + p.summary.SynRecv
+	total := p.summary.Established + p.summary.Listen + p.summary.TimeWait + p.summary.CloseWait + p.summary.SynSent + p.summary.SynRecv + p.summary.FinWait
 	maxVal := float64(total)
 	if maxVal < 10 {
 		maxVal = 10
@@ -42,9 +43,21 @@ func (p *ConnectionsPanel) Render(width, height int, active bool, expanded bool)
 
 	var content string
 	if expanded {
-		b5 := graph.RenderBar(fmt.Sprintf("SYN_S  %-3d", p.summary.SynSent), float64(p.summary.SynSent), maxVal, width-6, barStyle, lblStyle)
-		b6 := graph.RenderBar(fmt.Sprintf("SYN_R  %-3d", p.summary.SynRecv), float64(p.summary.SynRecv), maxVal, width-6, barStyle, lblStyle)
-		content = fmt.Sprintf("%s\n\n%s\n\n%s\n\n%s\n\n%s\n\n%s\n\nTotal Active Sockets: %d", b1, b2, b3, b4, b5, b6, total)
+		r1 := fmt.Sprintf("STATE | ESTAB: %d  LISTEN: %d  TIME_W: %d  CLOS_W: %d  FIN_W: %d  SYN_S: %d  SYN_R: %d",
+			p.summary.Established, p.summary.Listen, p.summary.TimeWait, p.summary.CloseWait, p.summary.FinWait, p.summary.SynSent, p.summary.SynRecv)
+		r2 := fmt.Sprintf("PROTO | UDP Sockets: %d  UNIX Sockets: %d  RAW Sockets: %d  Conn Rate: %.1f/s",
+			p.summary.UDP, p.summary.UNIX, p.summary.RAW, p.summary.ConnRate)
+		var ipFields []string
+		for _, ip := range p.summary.TopIPs {
+			ipFields = append(ipFields, fmt.Sprintf("%s (%d)", ip.IP, ip.Count))
+		}
+		r3 := fmt.Sprintf("TOP IP| %s", strings.Join(ipFields, "  "))
+		var portFields []string
+		for _, pt := range p.summary.TopPorts {
+			portFields = append(portFields, fmt.Sprintf("%d (%d)", pt.Port, pt.Count))
+		}
+		r4 := fmt.Sprintf("PORT  | %s", strings.Join(portFields, "  "))
+		content = fmt.Sprintf("%s\n%s\n%s\n%s", r1, r2, r3, r4)
 	} else {
 		if height < 6 {
 			content = fmt.Sprintf("ESTAB:%d  LISTEN:%d  TIME_W:%d  CLOS_W:%d", p.summary.Established, p.summary.Listen, p.summary.TimeWait, p.summary.CloseWait)

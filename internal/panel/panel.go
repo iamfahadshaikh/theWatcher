@@ -109,3 +109,10 @@ func AnsiSafeTruncate(s string, limit int) string {
 	}
 	return result.String()
 }
+
+func truncate(s string, limit int) string {
+	if len(s) > limit {
+		return s[:limit]
+	}
+	return s
+}

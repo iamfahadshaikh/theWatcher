@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"theWatcher/internal/metrics"
@@ -12,7 +13,7 @@ func TestLoginCollectorMock(t *testing.T) {
 
 	mockLast := "root     pts/0        :0               Tue Jul 21 12:00   still logged in\n"
 
-	col := NewLoginCollectorWithRunner(func(name string, args ...string) ([]byte, error) {
+	col := NewLoginCollectorWithRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		if name == "who" {
 			return []byte(mockWho), nil
 		}
@@ -22,7 +23,7 @@ func TestLoginCollectorMock(t *testing.T) {
 		return nil, fmt.Errorf("unknown command")
 	})
 
-	err := col.Collect()
+	err := col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

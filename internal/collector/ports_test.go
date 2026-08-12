@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,7 +21,7 @@ func TestPortsAndConnectionsCollector(t *testing.T) {
 	_ = os.WriteFile(udpFile, []byte(""), 0644)
 
 	portsCol := NewPortsCollectorWithPaths(tcpFile, udpFile)
-	err := portsCol.Collect()
+	err := portsCol.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,7 +31,7 @@ func TestPortsAndConnectionsCollector(t *testing.T) {
 	}
 
 	connCol := NewConnectionsCollectorWithPaths([]string{tcpFile})
-	err = connCol.Collect()
+	err = connCol.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

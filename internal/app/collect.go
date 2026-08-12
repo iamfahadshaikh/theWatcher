@@ -52,46 +52,34 @@ func NewCollectors() *Collectors {
 	}
 }
 
-func FetchMetricsCmd(c *Collectors) tea.Cmd {
+func FetchMetricsCmd(s *MetricsStore) tea.Cmd {
 	return func() tea.Msg {
-		msg := MetricsMsg{CollectedAt: time.Now()}
-
-		_ = c.System.Collect()
-		msg.System = c.System.Snapshot().(metrics.SystemInfo)
-
-		_ = c.CPU.Collect()
-		msg.CPU = c.CPU.Snapshot().(metrics.CPUMetric)
-
-		_ = c.Memory.Collect()
-		msg.Memory = c.Memory.Snapshot().(metrics.MemoryMetric)
-
-		_ = c.Network.Collect()
-		msg.Network = c.Network.Snapshot().(metrics.NetworkMetric)
-
-		_ = c.Disk.Collect()
-		msg.Disk = c.Disk.Snapshot().(metrics.DiskMetric)
-
-		_ = c.Process.Collect()
-		procSnap := c.Process.Snapshot().(collector.ProcessSnapshot)
-		msg.Processes = procSnap.Processes
-		msg.BirthRate = procSnap.BirthRate
-
-		_ = c.Ports.Collect()
-		msg.Ports = c.Ports.Snapshot().([]metrics.PortInfo)
-
-		_ = c.Conn.Collect()
-		msg.Conn = c.Conn.Snapshot().(metrics.ConnSummary)
-
-		dErr := c.Docker.Collect()
-		if dErr == nil {
-			msg.Docker = c.Docker.Snapshot().([]metrics.DockerStat)
-		} else {
-			msg.DockerErr = dErr
+		dockerSnap := s.GetDocker()
+		procSnap := s.GetProcess()
+		return MetricsMsg{
+			System:      s.GetSystem(),
+			CPU:         s.GetCPU(),
+			Memory:      s.GetMemory(),
+			Network:     s.GetNetwork(),
+			Disk:        s.GetDisk(),
+			Processes:   procSnap.Processes,
+			BirthRate:   procSnap.BirthRate,
+			Ports:       s.GetPorts(),
+			Conn:        s.GetConn(),
+			Docker:      dockerSnap.Stats,
+			DockerErr:   dockerSnap.Err,
+			Logins:      s.GetLogin(),
+			CollectedAt: s.GetCollectedAt(),
 		}
-
-		_ = c.Login.Collect()
-		msg.Logins = c.Login.Snapshot().([]metrics.LoginEvent)
-
-		return msg
 	}
+}
+
+func (c *Collectors) ResetSession() {
+	c.CPU.ResetSession()
+	c.Memory.ResetSession()
+	c.Disk.ResetSession()
+	c.Network.ResetSession()
+	c.Process.ResetSession()
+	c.Conn.ResetSession()
+	c.Docker.ResetSession()
 }

@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"testing"
 	"theWatcher/internal/metrics"
 )
@@ -8,11 +9,11 @@ import (
 func TestDockerCollectorMock(t *testing.T) {
 	mockOutput := "a1b2c3d4e5f6\tweb-app\t12.5%\t256MiB / 2GiB\t12.8%\t1.2MB / 500KB\t10MB / 5MB\t4\n"
 
-	col := NewDockerCollectorWithRunner(func() ([]byte, error) {
+	col := NewDockerCollectorWithRunner(func(ctx context.Context) ([]byte, error) {
 		return []byte(mockOutput), nil
 	})
 
-	err := col.Collect()
+	err := col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +23,7 @@ func TestNetworkCollector(t *testing.T) {
 	}
 
 	col := NewNetworkCollectorWithPath(netFile)
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -38,7 +39,7 @@ func TestNetworkCollector(t *testing.T) {
   eth0: 2048000    2000    0    0    0     0          0         0  4096000    4000    0    0    0     0       0          0
 `
 	_ = os.WriteFile(netFile, []byte(content2), 0644)
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

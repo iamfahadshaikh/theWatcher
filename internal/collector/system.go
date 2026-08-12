@@ -1,13 +1,17 @@
 package collector
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"sync"
+	"time"
 
 	"theWatcher/internal/metrics"
 )
 
 type SystemCollector struct {
+	mu       sync.Mutex
 	hostname string
 	snapshot metrics.SystemInfo
 }
@@ -24,7 +28,19 @@ func (c *SystemCollector) Name() string {
 	return "System"
 }
 
-func (c *SystemCollector) Collect() error {
+func (c *SystemCollector) Interval() time.Duration {
+	return 30 * time.Second
+}
+
+func (c *SystemCollector) ResetSession() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+}
+
+func (c *SystemCollector) Collect(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	var kern, upt, load string
 
 	if kBytes, err := os.ReadFile("/proc/sys/kernel/osrelease"); err == nil {
@@ -64,5 +80,7 @@ func (c *SystemCollector) Collect() error {
 }
 
 func (c *SystemCollector) Snapshot() any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.snapshot
 }

@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +24,7 @@ Cached:          2048000 kB
 	}
 
 	col := NewMemoryCollectorWithPath(memFile)
-	err = col.Collect()
+	err = col.Collect(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

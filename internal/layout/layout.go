@@ -30,7 +30,7 @@ type RowConfig struct {
 // ComputeLayout calculates heights and widths for dashboard regions.
 func ComputeLayout(width, height int) LayoutDimensions {
 	headerH := 2
-	footerH := 1
+	footerH := 2
 	bodyH := height - headerH - footerH
 	if bodyH < 1 {
 		bodyH = 1
