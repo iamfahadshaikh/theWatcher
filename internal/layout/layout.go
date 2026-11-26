@@ -49,10 +49,13 @@ func ComputeLayout(width, height int) LayoutDimensions {
 		rows.Row1Height = 8
 		rows.Row2Height = 8
 		rows.Row3Height = 6
-		rows.Row4Height = 8
-		rows.Row5Height = 6
-		rows.Row6Height = 5
-		rows.Row7Height = bodyH - (8 + 8 + 6 + 8 + 6 + 5)
+		rows.Row6Height = 5 // Login panel
+		rows.Row7Height = 5 // Events & Alerts panel (compacted to prevent screen waste)
+		rows.Row5Height = 5 // Docker / Disk Mounts
+		rows.Row4Height = bodyH - (rows.Row1Height + rows.Row2Height + rows.Row3Height + rows.Row5Height + rows.Row6Height + rows.Row7Height)
+		if rows.Row4Height < 8 {
+			rows.Row4Height = 8
+		}
 	} else if bodyH >= 35 {
 		rows.ShowRow1 = true
 		rows.ShowRow2 = true
@@ -64,8 +67,8 @@ func ComputeLayout(width, height int) LayoutDimensions {
 		rows.Row1Height = 7
 		rows.Row2Height = 7
 		rows.Row3Height = 5
-		rows.Row4Height = 8
-		rows.Row5Height = bodyH - (7 + 7 + 5 + 8)
+		rows.Row5Height = 5
+		rows.Row4Height = bodyH - (rows.Row1Height + rows.Row2Height + rows.Row3Height + rows.Row5Height)
 	} else if bodyH >= 22 {
 		rows.ShowRow1 = true
 		rows.ShowRow2 = true

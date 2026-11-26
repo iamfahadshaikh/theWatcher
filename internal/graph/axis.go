@@ -122,9 +122,9 @@ func AddYAxis(graphStr string, height int, minVal, maxVal float64, suffix string
 
 		isTick := false
 		isBottom := i == height-1
-		tickChar := "┤ "
+		tickChar := "┤"
 		if isBottom {
-			tickChar = "└ "
+			tickChar = "└"
 		}
 
 		if height >= 5 {
@@ -151,15 +151,16 @@ func AddYAxis(graphStr string, height int, minVal, maxVal float64, suffix string
 			} else {
 				valStr = fmt.Sprintf("%3.0f", val)
 			}
-			label = fmt.Sprintf("%4s%s %s", valStr, suffix, tickChar)
+			label = fmt.Sprintf("%4s%s %s ", valStr, suffix, tickChar)
 		} else {
 			label = "      │ "
 		}
 
-		if len(label) < 8 {
-			label = label + strings.Repeat(" ", 8-len(label))
-		} else if len(label) > 8 {
-			label = label[:8]
+		runes := []rune(label)
+		if len(runes) < 8 {
+			label = label + strings.Repeat(" ", 8-len(runes))
+		} else if len(runes) > 8 {
+			label = string(runes[:8])
 		}
 
 		result[i] = label + line

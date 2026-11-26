@@ -64,29 +64,53 @@ func (p *CPUPanel) Render(width, height int, active bool, expanded bool) string 
 	maxVal := 100.0
 	slice := p.history.Slice()
 
-	if config.GlobalConfig.Graph.Scale == "auto" {
-		// Only consider visible samples to compute the Y-axis range
-		var visibleSamples []float64
-		if len(slice) > graphW {
-			visibleSamples = make([]float64, graphW)
-			for i := 0; i < graphW; i++ {
-				visibleSamples[i] = slice[len(slice)-graphW+i].Value
-			}
-		} else {
-			visibleSamples = make([]float64, len(slice))
-			for i, s := range slice {
-				visibleSamples[i] = s.Value
-			}
+	var visibleSamples []float64
+	if len(slice) > graphW {
+		visibleSamples = make([]float64, graphW)
+		for i := 0; i < graphW; i++ {
+			visibleSamples[i] = slice[len(slice)-graphW+i].Value
 		}
+	} else {
+		visibleSamples = make([]float64, len(slice))
+		for i, s := range slice {
+			visibleSamples[i] = s.Value
+		}
+	}
+
+	if config.GlobalConfig.Graph.Scale == "auto" {
 		minVal, maxVal = graph.ComputeAdaptiveBounds(visibleSamples, 0.0, 100.0, 10.0)
 	}
 
+	var avg, vMin, vMax float64
+	if len(visibleSamples) > 0 {
+		vMin = visibleSamples[0]
+		vMax = visibleSamples[0]
+		sum := 0.0
+		for _, v := range visibleSamples {
+			sum += v
+			if v < vMin {
+				vMin = v
+			}
+			if v > vMax {
+				vMax = v
+			}
+		}
+		avg = sum / float64(len(visibleSamples))
+	}
+
 	brailleStr := graph.RenderHistory(p.history, p.renderer, graph.GraphData{
-		Width:  graphW,
-		Height: graphH,
-		Min:    minVal,
-		Max:    maxVal,
-		Color:  string(theme.ColorLove),
+		Width:        graphW,
+		Height:       graphH,
+		Min:          minVal,
+		Max:          maxVal,
+		Color:        string(theme.ColorLove),
+		ShowRefLines: true,
+		AvgVal:       avg,
+		MinVal:       vMin,
+		MaxVal:       vMax,
+		AvgColor:     string(theme.ColorGold),
+		MinColor:     string(theme.ColorIris),
+		MaxColor:     string(theme.ColorRose),
 	})
 
 	timestamps := make([]time.Time, len(slice))
@@ -99,8 +123,8 @@ func (p *CPUPanel) Render(width, height int, active bool, expanded bool) string 
 
 	var statsStr string
 	if expanded {
-		r1 := fmt.Sprintf("UTIL   | Cur: %.1f%% %s  Avg: %.1f%%  Min: %.1f%%  Max: %.1f%%",
-			p.latest.UsagePct, p.trend, p.latest.AveragePct, p.latest.SessionMin, p.latest.SessionMax)
+		r1 := fmt.Sprintf("UTIL   | Cur: %.1f%% %s  Vis Avg: %.1f%%  Vis Min: %.1f%%  Vis Max: %.1f%%",
+			p.latest.UsagePct, p.trend, avg, vMin, vMax)
 		r2 := fmt.Sprintf("SESS   | Avg: %.1f%%  Min: %.1f%%  Max: %.1f%%  Samples: %d",
 			p.latest.SessionAvg, p.latest.SessionMin, p.latest.SessionMax, p.latest.SessionSamples)
 		var raplStr string
@@ -133,7 +157,18 @@ func (p *CPUPanel) Render(width, height int, active bool, expanded bool) string 
 		r5 := fmt.Sprintf("CORES  | %s MHz", strings.Join(coreFreqs, " "))
 		statsStr = fmt.Sprintf("%s\n%s\n%s\n%s\n%s", r1, r2, r3, r4, r5)
 	} else {
-		statsStr = fmt.Sprintf("Cur: %s %.1f%%  Avg: %.1f%%  Peak: %.1f%%", p.trend, p.latest.UsagePct, p.latest.AveragePct, p.latest.PeakPct)
+		statsStr = fmt.Sprintf("Cur: %s %.1f%%  Vis Avg: %.1f%%  Vis Peak: %.1f%%", p.trend, p.latest.UsagePct, avg, vMax)
+		if len(p.latest.PerCoreUsagePct) > 0 {
+			var coreParts []string
+			maxShow := 8
+			if len(p.latest.PerCoreUsagePct) < maxShow {
+				maxShow = len(p.latest.PerCoreUsagePct)
+			}
+			for i := 0; i < maxShow; i++ {
+				coreParts = append(coreParts, fmt.Sprintf("C%02d:%.0f%%", i, p.latest.PerCoreUsagePct[i]))
+			}
+			statsStr += fmt.Sprintf("\n%s", strings.Join(coreParts, " "))
+		}
 	}
 
 	content := fmt.Sprintf("%s\n%s\n%s", brailleStr, xAxisStr, statsStr)

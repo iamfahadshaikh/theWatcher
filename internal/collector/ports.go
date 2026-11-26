@@ -3,6 +3,7 @@ package collector
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -79,6 +80,8 @@ func parseProcNetSockets(path, proto, stateFilter string) []metrics.PortInfo {
 	scanner := bufio.NewScanner(file)
 	headerSkipped := false
 
+	inodeMap := buildSocketInodeProcessMap()
+
 	for scanner.Scan() {
 		if !headerSkipped {
 			headerSkipped = true
@@ -86,7 +89,7 @@ func parseProcNetSockets(path, proto, stateFilter string) []metrics.PortInfo {
 		}
 
 		fields := strings.Fields(scanner.Text())
-		if len(fields) < 4 {
+		if len(fields) < 10 {
 			continue
 		}
 
@@ -108,12 +111,69 @@ func parseProcNetSockets(path, proto, stateFilter string) []metrics.PortInfo {
 			continue
 		}
 
+		inode := fields[9]
+		procName := "-"
+		if name, ok := inodeMap[inode]; ok {
+			procName = name
+		} else if os.Geteuid() != 0 {
+			procName = "(sudo required)"
+		}
+
 		results = append(results, metrics.PortInfo{
 			Protocol: proto,
 			Port:     strconv.FormatInt(portNum, 10),
-			Process:  "-",
+			Process:  procName,
 		})
 	}
 
 	return results
+}
+
+func buildSocketInodeProcessMap() map[string]string {
+	res := make(map[string]string)
+	procDirs, err := os.ReadDir("/proc")
+	if err != nil {
+		return res
+	}
+
+	for _, d := range procDirs {
+		if !d.IsDir() {
+			continue
+		}
+		pid := d.Name()
+		if _, err := strconv.Atoi(pid); err != nil {
+			continue
+		}
+
+		commBytes, _ := os.ReadFile("/proc/" + pid + "/comm")
+		comm := strings.TrimSpace(string(commBytes))
+		if comm == "" {
+			cmdlineBytes, _ := os.ReadFile("/proc/" + pid + "/cmdline")
+			parts := strings.Split(string(cmdlineBytes), "\x00")
+			if len(parts) > 0 && parts[0] != "" {
+				comm = parts[0]
+				if idx := strings.LastIndex(comm, "/"); idx >= 0 {
+					comm = comm[idx+1:]
+				}
+			}
+		}
+
+		fdDir := "/proc/" + pid + "/fd"
+		fds, err := os.ReadDir(fdDir)
+		if err != nil {
+			continue
+		}
+
+		for _, fd := range fds {
+			link, err := os.Readlink(fdDir + "/" + fd.Name())
+			if err != nil {
+				continue
+			}
+			if strings.HasPrefix(link, "socket:[") && strings.HasSuffix(link, "]") {
+				inode := link[8 : len(link)-1]
+				res[inode] = fmt.Sprintf("%s (%s)", comm, pid)
+			}
+		}
+	}
+	return res
 }

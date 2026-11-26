@@ -28,4 +28,5 @@ type CPUMetric struct {
 	FreqMinMHz     float64
 	FreqMaxMHz     float64
 	PerCoreFreqMHz []float64
+	PerCoreUsagePct []float64
 }

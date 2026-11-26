@@ -18,6 +18,8 @@ type CPUCollector struct {
 	statPath       string
 	prevIdle       uint64
 	prevTotal      uint64
+	prevCoreIdles  []uint64
+	prevCoreTotals []uint64
 	sumPct         float64
 	samples        uint64
 	peakPct        float64
@@ -185,25 +187,95 @@ func (c *CPUCollector) Collect(ctx context.Context) error {
 		}
 	}
 
+	// Parse per-core cpu0, cpu1... lines from /proc/stat
+	var perCoreUsage []float64
+	var currCoreIdles []uint64
+	var currCoreTotals []uint64
+	coreIdx := 0
+
+	for scanner.Scan() {
+		cLine := scanner.Text()
+		cFields := strings.Fields(cLine)
+		if len(cFields) < 5 {
+			continue
+		}
+		prefix := fmt.Sprintf("cpu%d", coreIdx)
+		if cFields[0] != prefix {
+			if strings.HasPrefix(cFields[0], "cpu") && len(cFields[0]) > 3 {
+				// Non-sequential cpu line or stopped
+			} else {
+				break
+			}
+		}
+
+		var cVals []uint64
+		for _, f := range cFields[1:] {
+			v, err := strconv.ParseUint(f, 10, 64)
+			if err != nil {
+				break
+			}
+			cVals = append(cVals, v)
+		}
+		if len(cVals) >= 4 {
+			cIdle := cVals[3]
+			if len(cVals) > 4 {
+				cIdle += cVals[4] // + iowait
+			}
+			cNonIdle := cVals[0] + cVals[1] + cVals[2]
+			if len(cVals) > 5 {
+				cNonIdle += cVals[5] // + irq
+			}
+			if len(cVals) > 6 {
+				cNonIdle += cVals[6] // + softirq
+			}
+			if len(cVals) > 7 {
+				cNonIdle += cVals[7] // + steal
+			}
+			cTot := cIdle + cNonIdle
+			currCoreIdles = append(currCoreIdles, cIdle)
+			currCoreTotals = append(currCoreTotals, cTot)
+
+			cUsage := 0.0
+			if len(c.prevCoreTotals) > coreIdx && len(c.prevCoreIdles) > coreIdx {
+				cTotDelta := float64(cTot - c.prevCoreTotals[coreIdx])
+				cIdleDelta := float64(cIdle - c.prevCoreIdles[coreIdx])
+				if cTotDelta > 0 {
+					cUsage = ((cTotDelta - cIdleDelta) / cTotDelta) * 100.0
+				}
+				if cUsage < 0 {
+					cUsage = 0
+				}
+				if cUsage > 100 {
+					cUsage = 100
+				}
+			}
+			perCoreUsage = append(perCoreUsage, cUsage)
+			coreIdx++
+		}
+	}
+	c.prevCoreIdles = currCoreIdles
+	c.prevCoreTotals = currCoreTotals
+
 	c.snapshot = metrics.CPUMetric{
-		Timestamp:      time.Now(),
-		UsagePct:       usagePct,
-		AveragePct:     avgPct,
-		PeakPct:        c.peakPct,
-		SessionMin:     c.sessionMin,
-		SessionMax:     c.sessionMax,
-		SessionAvg:     avgPct,
-		SessionSamples: int(c.samples),
-		LastSpike:      lastSpike,
-		HasSpikeActive: spikeActive,
-		SpikeStartTime: spikeStart,
-		SpikePeakValue: spikePeak,
-		TempC:          cpuTemp,
-		PackagePowerW:  raplPower,
-		FreqAvgMHz:     fAvg,
-		FreqMinMHz:     fMin,
-		FreqMaxMHz:     fMax,
-		PerCoreFreqMHz: perCore,
+		Timestamp:       time.Now(),
+		UsagePct:        usagePct,
+		AveragePct:      avgPct,
+		PeakPct:         c.peakPct,
+		SessionMin:      c.sessionMin,
+		SessionMax:      c.sessionMax,
+		SessionAvg:      avgPct,
+		SessionSamples:  int(c.samples),
+		LastSpike:       lastSpike,
+		HasSpikeActive:  spikeActive,
+		SpikeStartTime:  spikeStart,
+		SpikePeakValue:  spikePeak,
+		TempC:           cpuTemp,
+		PackagePowerW:   raplPower,
+		FreqAvgMHz:      fAvg,
+		FreqMinMHz:      fMin,
+		FreqMaxMHz:      fMax,
+		PerCoreFreqMHz:  perCore,
+		PerCoreUsagePct: perCoreUsage,
 	}
 
 	return nil

@@ -69,12 +69,49 @@ func (p *DiskPanel) Render(width, height int, active bool, expanded bool) string
 		}
 	}
 
+	var visibleSamples []float64
+	if len(slice) > graphW {
+		visibleSamples = make([]float64, graphW)
+		for i := 0; i < graphW; i++ {
+			visibleSamples[i] = slice[len(slice)-graphW+i].Value
+		}
+	} else {
+		visibleSamples = make([]float64, len(slice))
+		for i, s := range slice {
+			visibleSamples[i] = s.Value
+		}
+	}
+
+	var avg, vMin, vMax float64
+	if len(visibleSamples) > 0 {
+		vMin = visibleSamples[0]
+		vMax = visibleSamples[0]
+		sum := 0.0
+		for _, v := range visibleSamples {
+			sum += v
+			if v < vMin {
+				vMin = v
+			}
+			if v > vMax {
+				vMax = v
+			}
+		}
+		avg = sum / float64(len(visibleSamples))
+	}
+
 	brailleStr := graph.RenderHistory(p.history, p.renderer, graph.GraphData{
-		Width:  graphW,
-		Height: graphH,
-		Min:    0,
-		Max:    maxV,
-		Color:  string(theme.ColorSuccess),
+		Width:        graphW,
+		Height:       graphH,
+		Min:          0,
+		Max:          maxV,
+		Color:        string(theme.ColorSuccess),
+		ShowRefLines: true,
+		AvgVal:       avg,
+		MinVal:       vMin,
+		MaxVal:       vMax,
+		AvgColor:     string(theme.ColorGold),
+		MinColor:     string(theme.ColorIris),
+		MaxColor:     string(theme.ColorRose),
 	})
 
 	timestamps := make([]time.Time, len(slice))

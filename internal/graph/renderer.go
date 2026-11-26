@@ -19,6 +19,8 @@ type GraphData struct {
 	AvgVal       float64
 	MinVal       float64
 	MaxVal       float64
+	MultiSamples [][]float64
+	MultiColors  []string
 	AvgColor     string
 	MinColor     string
 	MaxColor     string

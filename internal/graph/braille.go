@@ -24,7 +24,15 @@ func (b *BrailleRenderer) Render(data GraphData) string {
 		color = string(theme.ColorLove)
 	}
 
-	if len(data.Samples) == 0 {
+	multiSamples := data.MultiSamples
+	multiColors := data.MultiColors
+
+	if len(multiSamples) == 0 && len(data.Samples) > 0 {
+		multiSamples = [][]float64{data.Samples}
+		multiColors = []string{color}
+	}
+
+	if len(multiSamples) == 0 {
 		emptyRow := strings.Repeat(" ", data.Width)
 		rows := make([]string, data.Height)
 		for i := range rows {
@@ -33,19 +41,20 @@ func (b *BrailleRenderer) Render(data GraphData) string {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(strings.Join(rows, "\n"))
 	}
 
-	samples := data.Samples
-	if len(samples) > data.Width {
-		samples = samples[len(samples)-data.Width:]
-	}
-
 	minV := data.Min
 	maxV := data.Max
-	for _, v := range samples {
-		if v > maxV {
-			maxV = v
+	for sIdx, samples := range multiSamples {
+		if len(samples) > data.Width {
+			multiSamples[sIdx] = samples[len(samples)-data.Width:]
+			samples = multiSamples[sIdx]
 		}
-		if v < minV {
-			minV = v
+		for _, v := range samples {
+			if v > maxV {
+				maxV = v
+			}
+			if v < minV {
+				minV = v
+			}
 		}
 	}
 	if maxV <= minV {
@@ -95,80 +104,87 @@ func (b *BrailleRenderer) Render(data GraphData) string {
 		drawRefLine(data.AvgVal, '╌', data.AvgColor)
 	}
 
-	startCol := data.Width - len(samples)
-	if startCol < 0 {
-		startCol = 0
-	}
-
-	rows := make([]float64, len(samples))
-	for i, v := range samples {
-		norm := (v - minV) / (maxV - minV)
-		if norm < 0 {
-			norm = 0
-		}
-		if norm > 1 {
-			norm = 1
-		}
-		rows[i] = (1.0 - norm) * float64(data.Height-1)
-	}
-
-	// 2. Draw trend line (foreground - overwrites background)
-	for i := 0; i < len(samples); i++ {
-		c := startCol + i
-		if c >= data.Width {
-			break
+	// 2. Draw trend lines (foreground - overwrites background)
+	for sIdx, samples := range multiSamples {
+		col := color
+		if sIdx < len(multiColors) && multiColors[sIdx] != "" {
+			col = multiColors[sIdx]
 		}
 
-		yCurr := rows[i]
-		rCurr := int(math.Round(yCurr))
+		startCol := data.Width - len(samples)
+		if startCol < 0 {
+			startCol = 0
+		}
 
-		if i == len(samples)-1 {
-			if rCurr >= 0 && rCurr < data.Height {
-				grid[rCurr][c] = '─'
-				colorGrid[rCurr][c] = color
+		rows := make([]float64, len(samples))
+		for i, v := range samples {
+			norm := (v - minV) / (maxV - minV)
+			if norm < 0 {
+				norm = 0
 			}
-			continue
+			if norm > 1 {
+				norm = 1
+			}
+			rows[i] = (1.0 - norm) * float64(data.Height-1)
 		}
 
-		yNext := rows[i+1]
-		rNext := int(math.Round(yNext))
+		for i := 0; i < len(samples); i++ {
+			c := startCol + i
+			if c >= data.Width {
+				break
+			}
 
-		if rCurr == rNext {
-			if rCurr >= 0 && rCurr < data.Height {
-				grid[rCurr][c] = '─'
-				colorGrid[rCurr][c] = color
-			}
-		} else if rCurr < rNext {
-			// Going down
-			if rCurr >= 0 && rCurr < data.Height {
-				grid[rCurr][c] = '╮'
-				colorGrid[rCurr][c] = color
-			}
-			for r := rCurr + 1; r < rNext; r++ {
-				if r >= 0 && r < data.Height {
-					grid[r][c] = '│'
-					colorGrid[r][c] = color
+			yCurr := rows[i]
+			rCurr := int(math.Round(yCurr))
+
+			if i == len(samples)-1 {
+				if rCurr >= 0 && rCurr < data.Height {
+					grid[rCurr][c] = '─'
+					colorGrid[rCurr][c] = col
 				}
+				continue
 			}
-			if rNext >= 0 && rNext < data.Height {
-				grid[rNext][c] = '╰'
-				colorGrid[rNext][c] = color
-			}
-		} else {
-			// Going up
-			if rCurr >= 0 && rCurr < data.Height {
-				grid[rCurr][c] = '╯'
-				colorGrid[rCurr][c] = color
-			}
-			for r := rNext + 1; r < rCurr; r++ {
-				if r >= 0 && r < data.Height {
-					grid[r][c] = '│'
-					colorGrid[r][c] = color
+
+			yNext := rows[i+1]
+			rNext := int(math.Round(yNext))
+
+			if rCurr == rNext {
+				if rCurr >= 0 && rCurr < data.Height {
+					grid[rCurr][c] = '─'
+					colorGrid[rCurr][c] = col
 				}
-			}
-			if rNext >= 0 && rNext < data.Height {
-				grid[rNext][c] = '╭'
-				colorGrid[rNext][c] = color
+			} else if rCurr < rNext {
+				// Going down
+				if rCurr >= 0 && rCurr < data.Height {
+					grid[rCurr][c] = '╮'
+					colorGrid[rCurr][c] = col
+				}
+				for r := rCurr + 1; r < rNext; r++ {
+					if r >= 0 && r < data.Height {
+						grid[r][c] = '│'
+						colorGrid[r][c] = col
+					}
+				}
+				if rNext >= 0 && rNext < data.Height {
+					grid[rNext][c] = '╰'
+					colorGrid[rNext][c] = col
+				}
+			} else {
+				// Going up
+				if rCurr >= 0 && rCurr < data.Height {
+					grid[rCurr][c] = '╯'
+					colorGrid[rCurr][c] = col
+				}
+				for r := rNext + 1; r < rCurr; r++ {
+					if r >= 0 && r < data.Height {
+						grid[r][c] = '│'
+						colorGrid[r][c] = col
+					}
+				}
+				if rNext >= 0 && rNext < data.Height {
+					grid[rNext][c] = '╭'
+					colorGrid[rNext][c] = col
+				}
 			}
 		}
 	}

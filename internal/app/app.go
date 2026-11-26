@@ -56,6 +56,9 @@ type App struct {
 	alertEngine    *AlertEngine
 	searchMode     bool
 	searchBuffer   string
+	killerMode     bool
+	killerConfirm  bool
+	killerPIDInput string
 	statusMessage  string
 	statusMsgTime  time.Time
 }

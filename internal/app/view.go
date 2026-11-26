@@ -60,7 +60,25 @@ func (a App) View() string {
 
 	var finalView string
 
-	if a.showHelp {
+	if a.killerMode {
+		var boxTitle, promptText string
+		if a.killerConfirm {
+			boxTitle = "⚠️  PROCESS KILLER - CONFIRMATION"
+			promptText = fmt.Sprintf("\nAre you SURE you want to kill PID %s? (SIGKILL)\n\n  [Y] Yes, Kill it     [N] No, Re-enter PID     [Esc] Cancel\n", a.killerPIDInput)
+		} else {
+			boxTitle = "⚡ PROCESS KILLER"
+			promptText = fmt.Sprintf("\nEnter Process PID to kill:\n\n  PID: %s▋\n\n  [Enter] Confirm     [Esc] Cancel / Exit\n", a.killerPIDInput)
+		}
+		popupStyle := lipgloss.NewStyle().
+			Border(theme.MaximizedBorder).
+			BorderForeground(theme.ColorLove).
+			Padding(1, 3).
+			Align(lipgloss.Center)
+
+		bodyView := popupStyle.Width(50).Render(fmt.Sprintf("%s\n%s", boxTitle, promptText))
+		centered := lipgloss.Place(lay.Width, lay.BodyHeight, lipgloss.Center, lipgloss.Center, bodyView)
+		finalView = lipgloss.JoinVertical(lipgloss.Left, headerBar, centered, statusLine, footerBar)
+	} else if a.showHelp {
 		helpText := fmt.Sprintf("=== theWatcher Help ===\n\n" +
 			"q / Ctrl+C : Quit application\n" +
 			"/          : Open search filter across processes\n" +

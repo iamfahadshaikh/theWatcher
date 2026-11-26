@@ -2,6 +2,9 @@ package app
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"syscall"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,6 +15,72 @@ import (
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if a.killerMode {
+			if a.killerConfirm {
+				switch msg.String() {
+				case "y", "Y":
+					pid, err := strconv.Atoi(a.killerPIDInput)
+					if err == nil && pid > 0 {
+						proc, findErr := os.FindProcess(pid)
+						if findErr == nil {
+							killErr := proc.Signal(syscall.SIGKILL)
+							if killErr != nil {
+								a.statusMessage = fmt.Sprintf("Failed to kill PID %d: %v", pid, killErr)
+							} else {
+								a.statusMessage = fmt.Sprintf("Process %d killed successfully (SIGKILL)", pid)
+							}
+						} else {
+							a.statusMessage = fmt.Sprintf("Process %d not found", pid)
+						}
+					} else {
+						a.statusMessage = fmt.Sprintf("Invalid PID: %s", a.killerPIDInput)
+					}
+					a.statusMsgTime = time.Now()
+					a.killerMode = false
+					a.killerConfirm = false
+					a.killerPIDInput = ""
+					return a, nil
+				case "n", "N":
+					// "if no then again show pid entering popup"
+					a.killerConfirm = false
+					a.killerPIDInput = ""
+					return a, nil
+				case "esc":
+					a.killerMode = false
+					a.killerConfirm = false
+					a.killerPIDInput = ""
+					return a, nil
+				}
+				return a, nil
+			}
+
+			// Entering PID in Process Killer popup
+			switch msg.String() {
+			case "enter":
+				if len(a.killerPIDInput) > 0 {
+					a.killerConfirm = true
+				}
+				return a, nil
+			case "esc":
+				a.killerMode = false
+				a.killerConfirm = false
+				a.killerPIDInput = ""
+				return a, nil
+			case "backspace":
+				if len(a.killerPIDInput) > 0 {
+					a.killerPIDInput = a.killerPIDInput[:len(a.killerPIDInput)-1]
+				}
+				return a, nil
+			default:
+				s := msg.String()
+				// Only accept numbers
+				if len(s) == 1 && s[0] >= '0' && s[0] <= '9' {
+					a.killerPIDInput += s
+				}
+				return a, nil
+			}
+		}
+
 		if a.searchMode {
 			switch msg.String() {
 			case "enter":
@@ -36,6 +105,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return a, tea.Quit
+		case "ctrl+k", "k":
+			a.killerMode = true
+			a.killerConfirm = false
+			a.killerPIDInput = ""
+			return a, nil
 		case "/":
 			a.searchMode = true
 			a.searchBuffer = ""
@@ -169,6 +243,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.connPanel.UpdateConnections(msg.Conn)
 		a.procsPanel.UpdateProcesses(msg.Processes, msg.BirthRate)
 		a.dockerPanel.UpdateDockerStats(msg.Docker, msg.DockerErr)
+		a.dockerPanel.UpdateFilesystems(msg.Disk.Filesystems)
 		a.loginPanel.UpdateLoginEvents(msg.Logins)
 
 		// Run alert updates

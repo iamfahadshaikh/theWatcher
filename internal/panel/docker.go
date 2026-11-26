@@ -9,6 +9,7 @@ import (
 
 type DockerPanel struct {
 	stats        []metrics.DockerStat
+	filesystems  []metrics.FilesystemStat
 	unavailable  bool
 	scrollOffset int
 }
@@ -29,7 +30,7 @@ func (p *DockerPanel) ScrollDown() {
 }
 
 func (p *DockerPanel) UpdateDockerStats(stats []metrics.DockerStat, err error) {
-	if err != nil || stats == nil {
+	if err != nil || stats == nil || len(stats) == 0 {
 		p.unavailable = true
 		p.stats = nil
 	} else {
@@ -38,13 +39,40 @@ func (p *DockerPanel) UpdateDockerStats(stats []metrics.DockerStat, err error) {
 	}
 }
 
+func (p *DockerPanel) UpdateFilesystems(fs []metrics.FilesystemStat) {
+	p.filesystems = fs
+}
+
 func (p *DockerPanel) Title() string {
+	if p.unavailable {
+		return "Filesystem Mounts (/proc/mounts)"
+	}
 	return "Docker Stats"
 }
 
 func (p *DockerPanel) Render(width, height int, active bool, expanded bool) string {
 	if p.unavailable {
-		return RenderContainer(p.Title(), "Docker daemon not running or not installed.", width, height, active)
+		if len(p.filesystems) == 0 {
+			return RenderContainer(p.Title(), "Docker daemon not running | No filesystems available.", width, height, active)
+		}
+		var lines []string
+		header := fmt.Sprintf("%-16s %-10s %-8s %-12s %-12s %-6s %s", "MOUNTPOINT", "DEVICE", "FSTYPE", "USED", "TOTAL", "USE%", "OPTIONS")
+		lines = append(lines, header)
+		maxLines := height - 4
+		if maxLines < 1 {
+			maxLines = 1
+		}
+		for i, fs := range p.filesystems {
+			if i >= maxLines {
+				break
+			}
+			usedGB := float64(fs.UsedBytes) / (1024 * 1024 * 1024)
+			totalGB := float64(fs.TotalBytes) / (1024 * 1024 * 1024)
+			row := fmt.Sprintf("%-16s %-10s %-8s %-10.1fGB %-10.1fGB %-5.1f%% %s",
+				truncate(fs.MountPoint, 16), truncate(fs.Device, 10), truncate(fs.FSType, 8), usedGB, totalGB, fs.UsedPct, truncate(fs.MountOptions, 20))
+			lines = append(lines, row)
+		}
+		return RenderContainer(p.Title(), strings.Join(lines, "\n"), width, height, active)
 	}
 
 	if len(p.stats) == 0 {
